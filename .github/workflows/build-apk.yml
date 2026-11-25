@@ -1,0 +1,127 @@
+name: Build TeleClone Android APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-android-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Prepare Offline Error Page & Install Capacitor
+        working-directory: mobile-app
+        run: |
+          cp www/index.html www/error.html
+          npm install
+          npx cap add android
+          npx cap sync android
+
+      - name: Add Android Permissions (Uploads, Media, Network)
+        run: |
+          MANIFEST="mobile-app/android/app/src/main/AndroidManifest.xml"
+          python3 - <<'EOF'
+          from pathlib import Path
+          p = Path("mobile-app/android/app/src/main/AndroidManifest.xml")
+          txt = p.read_text(encoding="utf-8")
+          perms = """
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+              <uses-permission android:name="android.permission.CAMERA" />
+              <uses-permission android:name="android.permission.RECORD_AUDIO" />
+              <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+              <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+          """
+          if "ACCESS_NETWORK_STATE" not in txt:
+              txt = txt.replace("<application", perms + "\n    <application", 1)
+          p.write_text(txt, encoding="utf-8")
+          EOF
+
+      - name: Apply Custom App Icon (if icon-512.png exists)
+        run: |
+          if [ -f "icon-512.png" ]; then
+            python3 -m pip install --quiet pillow
+            python3 - <<'EOF'
+          import shutil
+          from pathlib import Path
+          from PIL import Image
+
+          res_dir = Path("mobile-app/android/app/src/main/res")
+          anydpi = res_dir / "mipmap-anydpi-v26"
+          if anydpi.exists():
+              shutil.rmtree(anydpi)
+
+          img = Image.open("icon-512.png").convert("RGBA")
+          sizes = {
+              "mipmap-mdpi": 48,
+              "mipmap-hdpi": 72,
+              "mipmap-xhdpi": 96,
+              "mipmap-xxhdpi": 144,
+              "mipmap-xxxhdpi": 192,
+          }
+          for folder, sz in sizes.items():
+              d = res_dir / folder
+              d.mkdir(parents=True, exist_ok=True)
+              resized = img.resize((sz, sz), Image.Resampling.LANCZOS)
+              resized.save(d / "ic_launcher.png")
+              resized.save(d / "ic_launcher_round.png")
+          EOF
+          fi
+
+      - name: Build Universal Release APK
+        working-directory: mobile-app/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease
+
+      - name: Sign APK (V1 + V2 + V3 for Android 6 to 15)
+        run: |
+          BUILD_TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)
+          UNSIGNED="mobile-app/android/app/build/outputs/apk/release/app-release-unsigned.apk"
+
+          keytool -genkey -v \
+            -keystore teleclone-release.keystore \
+            -alias teleclone \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass teleclone123 \
+            -keypass teleclone123 \
+            -dname "CN=TeleClone, OU=App, O=TeleClone, L=Sahiwal, S=Punjab, C=PK"
+
+          "$BUILD_TOOLS/zipalign" -v -p 4 "$UNSIGNED" teleclone-aligned.apk
+
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks teleclone-release.keystore \
+            --ks-key-alias teleclone \
+            --ks-pass pass:teleclone123 \
+            --key-pass pass:teleclone123 \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --out TeleClone-Universal.apk \
+            teleclone-aligned.apk
+
+          "$BUILD_TOOLS/apksigner" verify --verbose TeleClone-Universal.apk
+
+      - name: Upload Ready-to-Install APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: TeleClone-Android-APK
+          path: |
+            TeleClone-Universal.apk
+            teleclone-release.keystore
