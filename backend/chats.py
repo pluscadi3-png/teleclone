@@ -886,20 +886,26 @@ async def upload_media(request: Request, user: dict = Depends(get_current_user))
     is_image = file_ctype.lower().startswith("image/") or ext in {
         ".jpg", ".jpeg", ".png", ".gif", ".webp", ".jfif"
     }
+    is_audio = file_ctype.lower().startswith("audio/") or ext in {
+        ".webm", ".ogg", ".opus", ".mp3", ".m4a", ".wav", ".aac"
+    }
     size_str = (
         f"{len(content) / (1024 * 1024):.1f} MB"
         if len(content) >= 1024 * 1024
         else f"{max(1, len(content) // 1024)} KB"
     )
 
+    att_type = "photo" if is_image else ("voice" if is_audio else "file")
+    att_label = "Photo" if is_image else ("Voice message" if is_audio else orig_name)
+
     return {
         "ok": True,
         "attachment": {
-            "type": "photo" if is_image else "file",
+            "type": att_type,
             "name": orig_name,
             "size": size_str,
             "src": file_url,
-            "label": "Photo" if is_image else orig_name,
+            "label": att_label,
         },
     }
     return {
@@ -962,3 +968,67 @@ async def run_expiry_watcher():
             print(f"[Expiry Watcher Error] {err}")
 
         await asyncio.sleep(1)
+
+@router.get("/{chat_id}/info")
+def get_chat_info(chat_id: int, user: dict = Depends(get_current_user)):
+    import sqlite3
+
+    conn = get_conn()
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    try:
+        chat_row = cur.execute("SELECT * FROM chats WHERE id = ?", (chat_id,)).fetchone()
+        if not chat_row:
+            raise HTTPException(status_code=404, detail="Chat nahi mili")
+        chat = dict(chat_row)
+
+        tables = {
+            r[0] for r in cur.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        }
+        member_table = next(
+            (t for t in ("chat_members", "chat_participants", "participants", "members") if t in tables),
+            None,
+        )
+
+        other_user = None
+        member_count = 0
+        my_id = user.get("id") or user.get("user_id")
+
+        if member_table:
+            rows = cur.execute(
+                f"SELECT user_id FROM {member_table} WHERE chat_id = ?", (chat_id,)
+            ).fetchall()
+            member_ids = [r["user_id"] for r in rows]
+            member_count = len(member_ids)
+            other_id = next((uid for uid in member_ids if uid != my_id), None)
+            if other_id is None and member_ids:
+                other_id = member_ids[0]
+            if other_id is not None:
+                u_row = cur.execute("SELECT * FROM users WHERE id = ?", (other_id,)).fetchone()
+                if u_row:
+                    u = dict(u_row)
+                    other_user = {
+                        "id": u.get("id"),
+                        "name": u.get("display_name") or u.get("name") or u.get("full_name") or u.get("username") or "User",
+                        "username": u.get("username") or "",
+                        "phone": u.get("phone") or u.get("phone_number") or "",
+                        "bio": u.get("bio") or u.get("about") or "",
+                        "avatar": u.get("avatar_url") or u.get("avatar") or "",
+                        "last_seen": u.get("last_seen") or u.get("status") or "",
+                        "is_bot": bool(u.get("is_bot", 0)),
+                    }
+
+        return {
+            "ok": True,
+            "chat": {
+                "id": chat.get("id"),
+                "type": chat.get("type") or chat.get("chat_type") or "private",
+                "title": chat.get("title") or chat.get("name") or (other_user["name"] if other_user else "Chat"),
+                "avatar": chat.get("avatar_url") or chat.get("avatar") or (other_user["avatar"] if other_user else ""),
+                "description": chat.get("description") or chat.get("bio") or "",
+                "member_count": member_count,
+            },
+            "user": other_user,
+        }
+    finally:
+        conn.close()    
