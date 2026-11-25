@@ -104,6 +104,16 @@ if (ROOT_DIR / "css").exists():
     app.mount("/css", StaticFiles(directory=str(ROOT_DIR / "css")), name="css")
 if (ROOT_DIR / "js").exists():
     app.mount("/js", StaticFiles(directory=str(ROOT_DIR / "js")), name="js")
+@app.get("/sw.js")
+async def serve_service_worker():
+    return FileResponse(
+        ROOT_DIR / "sw.js",
+        media_type="application/javascript",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Service-Worker-Allowed": "/",
+        },
+    )
 
 
 @app.get("/")
