@@ -1097,3 +1097,20 @@ html, body {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
+
+.tc-mic-meter {
+  flex: 1;
+  height: 6px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+  max-width: 140px;
+}
+
+#tcMicLevelFill {
+  width: 10%;
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #22c55e, #4ade80);
+  transition: width 0.08s linear;
+}

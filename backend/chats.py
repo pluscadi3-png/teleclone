@@ -14,6 +14,13 @@ from pydantic import BaseModel
 from backend.auth import get_current_user, make_initials
 from backend.database import get_conn
 from backend.ws_manager import ws_manager
+import mimetypes
+
+mimetypes.add_type("audio/wav", ".wav")
+mimetypes.add_type("audio/webm", ".webm")
+mimetypes.add_type("audio/ogg", ".ogg")
+mimetypes.add_type("audio/mp4", ".m4a")
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(os.getenv("DATA_DIR", str(BASE_DIR)))
 UPLOAD_DIR = DATA_DIR / "uploads"
@@ -977,58 +984,109 @@ def get_chat_info(chat_id: int, user: dict = Depends(get_current_user)):
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
     try:
-        chat_row = cur.execute("SELECT * FROM chats WHERE id = ?", (chat_id,)).fetchone()
-        if not chat_row:
-            raise HTTPException(status_code=404, detail="Chat nahi mili")
-        chat = dict(chat_row)
-
         tables = {
             r[0] for r in cur.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
         }
-        member_table = next(
-            (t for t in ("chat_members", "chat_participants", "participants", "members") if t in tables),
-            None,
-        )
+
+        def cols_of(tbl: str) -> set:
+            if tbl not in tables:
+                return set()
+            return {r[1] for r in cur.execute(f"PRAGMA table_info({tbl})").fetchall()}
+
+        my_id = user.get("id") or user.get("user_id")
+        chat = {}
+        if "chats" in tables:
+            row = cur.execute("SELECT * FROM chats WHERE id = ?", (chat_id,)).fetchone()
+            if row:
+                chat = dict(row)
+
+        other_id = None
+        member_count = 0
+
+        # 1. Pehle member tables check karein (column names auto-detect kar ke)
+        for tbl in ("chat_members", "chat_participants", "participants", "members"):
+            c = cols_of(tbl)
+            if "chat_id" in c:
+                ucol = next((x for x in ("user_id", "member_id", "account_id") if x in c), None)
+                if ucol:
+                    rows = cur.execute(
+                        f"SELECT {ucol} FROM {tbl} WHERE chat_id = ?", (chat_id,)
+                    ).fetchall()
+                    ids = [r[0] for r in rows if r[0] is not None]
+                    member_count = max(member_count, len(ids))
+                    other_id = next((uid for uid in ids if uid != my_id), None)
+                    if other_id is not None:
+                        break
+
+        # 2. Fallback: chats table ke direct columns (user1_id / user2_id / peer_id)
+        if other_id is None and chat:
+            for key in ("peer_id", "other_user_id", "target_user_id", "user1_id", "user2_id", "created_by", "owner_id"):
+                val = chat.get(key)
+                if val is not None and val != my_id:
+                    other_id = val
+                    break
+
+        # 3. Fallback: messages table mein samne wale sender ko dhoondein
+        if other_id is None and "messages" in tables:
+            mcols = cols_of("messages")
+            scol = next((x for x in ("sender_id", "user_id", "from_user_id") if x in mcols), None)
+            if scol and "chat_id" in mcols:
+                r = cur.execute(
+                    f"SELECT {scol} FROM messages WHERE chat_id = ? AND {scol} != ? ORDER BY id DESC LIMIT 1",
+                    (chat_id, my_id or -1),
+                ).fetchone()
+                if r:
+                    other_id = r[0]
 
         other_user = None
-        member_count = 0
-        my_id = user.get("id") or user.get("user_id")
-
-        if member_table:
-            rows = cur.execute(
-                f"SELECT user_id FROM {member_table} WHERE chat_id = ?", (chat_id,)
-            ).fetchall()
-            member_ids = [r["user_id"] for r in rows]
-            member_count = len(member_ids)
-            other_id = next((uid for uid in member_ids if uid != my_id), None)
-            if other_id is None and member_ids:
-                other_id = member_ids[0]
+        if "users" in tables:
+            u_row = None
             if other_id is not None:
                 u_row = cur.execute("SELECT * FROM users WHERE id = ?", (other_id,)).fetchone()
-                if u_row:
-                    u = dict(u_row)
-                    other_user = {
-                        "id": u.get("id"),
-                        "name": u.get("display_name") or u.get("name") or u.get("full_name") or u.get("username") or "User",
-                        "username": u.get("username") or "",
-                        "phone": u.get("phone") or u.get("phone_number") or "",
-                        "bio": u.get("bio") or u.get("about") or "",
-                        "avatar": u.get("avatar_url") or u.get("avatar") or "",
-                        "last_seen": u.get("last_seen") or u.get("status") or "",
-                        "is_bot": bool(u.get("is_bot", 0)),
-                    }
+            # 4. Fallback: chat title/name se user match karein
+            if not u_row and chat:
+                title_guess = (chat.get("title") or chat.get("name") or "").strip().lstrip("@")
+                ucols = cols_of("users")
+                if title_guess:
+                    for col in ("username", "display_name", "name", "full_name"):
+                        if col in ucols:
+                            u_row = cur.execute(
+                                f"SELECT * FROM users WHERE lower({col}) = lower(?) LIMIT 1",
+                                (title_guess,),
+                            ).fetchone()
+                            if u_row:
+                                break
+            if u_row:
+                u = dict(u_row)
+                other_user = {
+                    "id": u.get("id"),
+                    "name": u.get("display_name") or u.get("name") or u.get("full_name") or u.get("username") or "User",
+                    "username": u.get("username") or "",
+                    "phone": u.get("phone") or u.get("phone_number") or "",
+                    "bio": u.get("bio") or u.get("about") or "",
+                    "avatar": u.get("avatar_url") or u.get("avatar") or "",
+                    "last_seen": u.get("last_seen") or u.get("status") or "",
+                    "is_bot": bool(u.get("is_bot", 0)),
+                }
 
         return {
             "ok": True,
             "chat": {
-                "id": chat.get("id"),
+                "id": chat.get("id", chat_id),
                 "type": chat.get("type") or chat.get("chat_type") or "private",
                 "title": chat.get("title") or chat.get("name") or (other_user["name"] if other_user else "Chat"),
                 "avatar": chat.get("avatar_url") or chat.get("avatar") or (other_user["avatar"] if other_user else ""),
                 "description": chat.get("description") or chat.get("bio") or "",
-                "member_count": member_count,
+                "member_count": member_count or 2,
             },
             "user": other_user,
         }
+    except Exception as exc:
+        return {
+            "ok": False,
+            "error": str(exc),
+            "chat": {"id": chat_id, "type": "private", "title": "User", "avatar": "", "description": "", "member_count": 2},
+            "user": None,
+        }
     finally:
-        conn.close()    
+        conn.close()
