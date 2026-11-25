@@ -30,25 +30,90 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: Add Android Permissions (Uploads, Media, Network)
+      - name: Add Android Permissions (Phone Number, Contacts, Media, Notifications)
         run: |
-          MANIFEST="mobile-app/android/app/src/main/AndroidManifest.xml"
           python3 - <<'EOF'
           from pathlib import Path
           p = Path("mobile-app/android/app/src/main/AndroidManifest.xml")
           txt = p.read_text(encoding="utf-8")
           perms = """
               <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+              <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+              <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
+              <uses-permission android:name="android.permission.READ_CONTACTS" />
               <uses-permission android:name="android.permission.CAMERA" />
               <uses-permission android:name="android.permission.RECORD_AUDIO" />
+              <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
               <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
               <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
               <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
           """
-          if "ACCESS_NETWORK_STATE" not in txt:
+          if "READ_PHONE_NUMBERS" not in txt:
               txt = txt.replace("<application", perms + "\n    <application", 1)
           p.write_text(txt, encoding="utf-8")
+          EOF
+
+      - name: Prompt Runtime Permissions on App Launch
+        run: |
+          cat <<'EOF' > mobile-app/android/app/src/main/java/com/teleclone/app/MainActivity.java
+          package com.teleclone.app;
+
+          import android.content.pm.PackageManager;
+          import android.os.Build;
+          import android.os.Bundle;
+          import androidx.core.app.ActivityCompat;
+          import androidx.core.content.ContextCompat;
+          import com.getcapacitor.BridgeActivity;
+          import java.util.ArrayList;
+          import java.util.List;
+
+          public class MainActivity extends BridgeActivity {
+              private static final int PERMISSION_REQUEST_CODE = 1001;
+
+              @Override
+              public void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  requestAppPermissions();
+              }
+
+              private void requestAppPermissions() {
+                  List<String> perms = new ArrayList<>();
+                  perms.add("android.permission.READ_PHONE_STATE");
+                  if (Build.VERSION.SDK_INT >= 26) {
+                      perms.add("android.permission.READ_PHONE_NUMBERS");
+                  }
+                  perms.add("android.permission.READ_CONTACTS");
+                  perms.add("android.permission.CAMERA");
+                  perms.add("android.permission.RECORD_AUDIO");
+
+                  if (Build.VERSION.SDK_INT >= 33) {
+                      perms.add("android.permission.POST_NOTIFICATIONS");
+                      perms.add("android.permission.READ_MEDIA_IMAGES");
+                      perms.add("android.permission.READ_MEDIA_VIDEO");
+                  } else {
+                      perms.add("android.permission.READ_EXTERNAL_STORAGE");
+                      if (Build.VERSION.SDK_INT <= 29) {
+                          perms.add("android.permission.WRITE_EXTERNAL_STORAGE");
+                      }
+                  }
+
+                  List<String> needed = new ArrayList<>();
+                  for (String perm : perms) {
+                      if (ContextCompat.checkSelfPermission(this, perm) != PackageManager.PERMISSION_GRANTED) {
+                          needed.add(perm);
+                      }
+                  }
+
+                  if (!needed.isEmpty()) {
+                      ActivityCompat.requestPermissions(
+                          this,
+                          needed.toArray(new String[0]),
+                          PERMISSION_REQUEST_CODE
+                      );
+                  }
+              }
+          }
           EOF
 
       - name: Apply Custom App Icon (if icon-512.png exists)
@@ -125,3 +190,9 @@ jobs:
           path: |
             TeleClone-Universal.apk
             teleclone-release.keystore
+
+            
+
+
+
+            
