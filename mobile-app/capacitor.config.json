@@ -1,0 +1,15 @@
+{
+  "appId": "com.teleclone.app",
+  "appName": "TeleClone",
+  "webDir": "www",
+  "server": {
+    "url": "https://teleclone-production.up.railway.app",
+    "cleartext": false,
+    "errorPath": "error.html"
+  },
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  }
+}
