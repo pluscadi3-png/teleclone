@@ -203,10 +203,15 @@
             autoGainControl: true
           }
         });
-      } catch (err) {
-        await cleanupRecorder();
-        showToast("Mic permission allow karein (Settings > Apps > TeleClone)");
-        return false;
+      } catch (err1) {
+        try {
+          audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (err2) {
+          await cleanupRecorder();
+          const code = (err2 && err2.name) || "PermissionError";
+          showToast(`Mic error (${code}) — Settings > Apps > TeleClone se mic allow karein`);
+          return false;
+        }
       }
 
       try {
