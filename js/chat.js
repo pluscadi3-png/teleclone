@@ -181,12 +181,13 @@
     if (att.type === "photo" && att.src) {
       return `<img src="${att.src}" alt="${escapeHtml(att.name || "Photo")}" class="msg-media-img" />`;
     }
-    if (att.type === "voice") {
+   if (att.type === "voice") {
+      const safeSrc = escapeHtml(att.src || "");
       return `
-        <div class="msg-voice-card">
-          <button class="voice-play-btn" type="button">▶</button>
-          <div class="voice-wave"></div>
-          <span style="font-size:12px;opacity:0.85;">${escapeHtml(att.duration || "0:03")}</span>
+        <div class="msg-voice-card" data-voice-src="${safeSrc}">
+          <button class="voice-play-btn" type="button" data-voice-src="${safeSrc}" aria-label="Play voice">▶</button>
+          <div class="voice-wave"><div class="voice-wave-progress"></div></div>
+          <span class="voice-duration" style="font-size:12px;opacity:0.85;">${escapeHtml(att.duration || "0:01")}</span>
         </div>
       `;
     }
@@ -483,8 +484,12 @@
     }
   }
 
-  // ==================== VOICE RECORDER SIMULATION ====================
-  function startVoiceRecording() {
+  // ==================== REAL VOICE RECORDER ====================
+  async function startVoiceRecording() {
+    if (isRecording) return;
+    const ok = window.TCVoice ? await window.TCVoice.start() : false;
+    if (!ok) return;
+
     isRecording = true;
     recSeconds = 0;
     els.recTimer.textContent = "0:00";
@@ -500,7 +505,7 @@
     }, 1000);
   }
 
-  function stopVoiceRecording(send = false) {
+  async function stopVoiceRecording(send = false) {
     if (!isRecording) return;
     clearInterval(recInterval);
     const duration = els.recTimer.textContent;
@@ -509,22 +514,35 @@
     els.inputWrap.classList.remove("hidden");
     updateActionButton();
 
-    if (send) {
-      const chat = getActiveChat();
-      if (!chat) return;
-      Store.addMessage(chat.id, {
-        sender: "me",
-        text: "",
-        attachment: { type: "voice", duration: duration === "0:00" ? "0:01" : duration, label: "Voice message" }
-      });
-      if (window.App) window.App.renderAll();
-      renderActiveChat();
-      toast("Voice message sent 🎤");
-    } else {
+    if (!send) {
+      if (window.TCVoice) await window.TCVoice.cancel();
       toast("Recording cancelled");
+      return;
     }
-  }
 
+    const chat = getActiveChat();
+    if (!chat) {
+      if (window.TCVoice) await window.TCVoice.cancel();
+      return;
+    }
+
+    toast("Uploading voice note...");
+    const finalDur = duration === "0:00" ? "0:01" : duration;
+    const attachment = window.TCVoice ? await window.TCVoice.stopAndUpload(finalDur) : null;
+    if (!attachment || !attachment.src) {
+      toast("Voice note record ya upload nahi ho saka");
+      return;
+    }
+
+    Store.addMessage(chat.id, {
+      sender: "me",
+      text: "",
+      attachment
+    });
+    if (window.App) window.App.renderAll();
+    renderActiveChat();
+    toast("Voice message sent");
+  }
   // ==================== MESSAGE CONTEXT MENU ====================
   function openMsgContextMenu(msgId, x, y) {
     const chat = getActiveChat();

@@ -975,8 +975,8 @@ async def run_expiry_watcher():
             print(f"[Expiry Watcher Error] {err}")
 
         await asyncio.sleep(1)
-
-@router.get("/{chat_id}/info")
+        
+@router.get("/chats/{chat_id}/info")
 def get_chat_info(chat_id: int, user: dict = Depends(get_current_user)):
     import sqlite3
 

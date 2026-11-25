@@ -6,30 +6,24 @@
 
   // WAV Recorder state
   let audioStream = null;
-  let audioCtx = null;
+  let recCtx = null;
   let sourceNode = null;
   let processorNode = null;
   let pcmBuffers = [];
-  let sampleRate = 16000;
-  let recordTimer = null;
-  let recordSeconds = 0;
-  let isRecording = false;
-  let currentlyPlayingAudio = null;
+  let recSampleRate = 16000;
+  let isCapturing = false;
 
-  const AUDIO_EXT_RE = /\.(wav|webm|ogg|opus|mp3|m4a|aac)(\?.*)?$/i;
+  // Player state
+  const audioBufferCache = new Map();
+  let activePlayback = null;
 
   const ICONS = {
-    mic: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`,
-    send: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`,
-    trash: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>`,
-    play: `<svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>`,
-    pause: `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`,
     close: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
     copy: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
     download: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`
   };
 
-  // ===== 1. Active Chat ID & Auth Token Track Karein =====
+  // ===== 1. Active Chat ID & Auth Token Tracking =====
   const origFetch = window.fetch.bind(window);
   window.fetch = function (input, init) {
     try {
@@ -49,6 +43,21 @@
     } catch (_) {}
     return origFetch(input, init);
   };
+
+  function getCurrentChatId() {
+    try {
+      if (window.Store) {
+        if (typeof window.Store.getActiveChat === "function") {
+          const c = window.Store.getActiveChat();
+          if (c && c.id) return Number(c.id);
+        }
+        if (window.Store.state && window.Store.state.activeChatId) {
+          return Number(window.Store.state.activeChatId);
+        }
+      }
+    } catch (_) {}
+    return activeChatId;
+  }
 
   function getAuthHeader() {
     if (lastAuthHeader) return lastAuthHeader;
@@ -84,7 +93,7 @@
     t._tid = setTimeout(() => t.classList.remove("show"), 2600);
   }
 
-  // ===== 2. Universal 16kHz Mono WAV Encoder (Android 6-15 100% Clear Audio) =====
+  // ===== 2. Real 16kHz Mono WAV Recorder (Exposed as window.TCVoice) =====
   function downsampleBuffer(chunks, inRate, outRate) {
     let totalLen = 0;
     for (const c of chunks) totalLen += c.length;
@@ -115,9 +124,16 @@
   }
 
   function encodeWavBlob(samples, rate) {
+    // Agar awaaz halka ho to softly normalize karein taake clear sunai de
+    let peak = 0;
+    for (let i = 0; i < samples.length; i++) {
+      const a = Math.abs(samples[i]);
+      if (a > peak) peak = a;
+    }
+    const gain = peak > 0.005 && peak < 0.45 ? Math.min(4.0, 0.85 / peak) : 1.0;
+
     const buffer = new ArrayBuffer(44 + samples.length * 2);
     const view = new DataView(buffer);
-
     const writeStr = (off, s) => {
       for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i));
     };
@@ -127,8 +143,8 @@
     writeStr(8, "WAVE");
     writeStr(12, "fmt ");
     view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true); // PCM
-    view.setUint16(22, 1, true); // Mono
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
     view.setUint32(24, rate, true);
     view.setUint32(28, rate * 2, true);
     view.setUint16(32, 2, true);
@@ -138,134 +154,14 @@
 
     let idx = 44;
     for (let i = 0; i < samples.length; i++, idx += 2) {
-      let s = Math.max(-1, Math.min(1, samples[i]));
+      let s = Math.max(-1, Math.min(1, samples[i] * gain));
       view.setInt16(idx, s < 0 ? s * 0x8000 : s * 0x7fff, true);
     }
     return new Blob([view], { type: "audio/wav" });
   }
 
-  // ===== 3. Voice Recorder UI & Mic Capture =====
-  function findComposerContainer() {
-    const input = document.querySelector(
-      '#messageInput, #msgInput, .message-input, .chat-input input, .chat-input textarea, textarea[placeholder*="Message" i], input[placeholder*="Message" i]'
-    );
-    if (!input) return null;
-    return (
-      input.closest(".chat-input-bar, .chat-composer, .composer, .input-area, .chat-input, form") ||
-      input.parentElement
-    );
-  }
-
-  function injectMicButton() {
-    const composer = findComposerContainer();
-    if (!composer || composer.querySelector("#tcVoiceMicBtn")) return;
-
-    composer.style.position = composer.style.position || "relative";
-
-    const btn = document.createElement("button");
-    btn.id = "tcVoiceMicBtn";
-    btn.type = "button";
-    btn.className = "tc-mic-btn";
-    btn.title = "Record Voice Note";
-    btn.innerHTML = ICONS.mic;
-    btn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      startVoiceRecording(composer);
-    });
-
-    const sendBtn = composer.querySelector(
-      '#sendBtn, .send-btn, button[type="submit"], button[aria-label*="send" i], button[title*="send" i]'
-    );
-    if (sendBtn && sendBtn.parentElement === composer) {
-      composer.insertBefore(btn, sendBtn);
-    } else {
-      composer.appendChild(btn);
-    }
-  }
-
-  async function startVoiceRecording(composer) {
-    if (isRecording) return;
-    if (!activeChatId) {
-      showToast("Pehle koi chat open karein");
-      return;
-    }
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      showToast("Microphone support nahi mil raha");
-      return;
-    }
-
-    // Koi audio chal raha ho to pause kar dein
-    if (currentlyPlayingAudio) {
-      currentlyPlayingAudio.pause();
-      currentlyPlayingAudio = null;
-    }
-
-    try {
-      audioStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        }
-      });
-    } catch (err) {
-      showToast("Mic permission allow karein (Settings > Apps > TeleClone)");
-      return;
-    }
-
-    try {
-      const AudioContextCls = window.AudioContext || window.webkitAudioContext;
-      audioCtx = new AudioContextCls();
-      if (audioCtx.state === "suspended") await audioCtx.resume();
-      sampleRate = audioCtx.sampleRate || 44100;
-
-      sourceNode = audioCtx.createMediaStreamSource(audioStream);
-      processorNode = audioCtx.createScriptProcessor(4096, 1, 1);
-      pcmBuffers = [];
-      recordSeconds = 0;
-      isRecording = true;
-
-      // Silent gain node taake feedback/echo na aaye lekin processor chalta rahe
-      const silentGain = audioCtx.createGain();
-      silentGain.gain.value = 0;
-
-      processorNode.onaudioprocess = (ev) => {
-        if (!isRecording) return;
-        const inputData = ev.inputBuffer.getChannelData(0);
-        pcmBuffers.push(new Float32Array(inputData));
-
-        // Live mic level meter calculate karein
-        let sumSq = 0;
-        for (let i = 0; i < inputData.length; i++) sumSq += inputData[i] * inputData[i];
-        const rms = Math.sqrt(sumSq / inputData.length);
-        const pct = Math.min(100, Math.round(rms * 420));
-        const meter = document.getElementById("tcMicLevelFill");
-        if (meter) meter.style.width = `${Math.max(8, pct)}%`;
-      };
-
-      sourceNode.connect(processorNode);
-      processorNode.connect(silentGain);
-      silentGain.connect(audioCtx.destination);
-
-      showRecordingBar(composer);
-      recordTimer = setInterval(() => {
-        recordSeconds += 1;
-        const tEl = document.getElementById("tcRecTimer");
-        if (tEl) tEl.textContent = formatTime(recordSeconds);
-      }, 1000);
-    } catch (err) {
-      console.error("[VoiceRec]", err);
-      await stopAudioEngine();
-      showToast("Audio recorder start nahi ho saka");
-    }
-  }
-
-  async function stopAudioEngine() {
-    isRecording = false;
-    clearInterval(recordTimer);
-    recordTimer = null;
-
+  async function cleanupRecorder() {
+    isCapturing = false;
     try { if (processorNode) processorNode.disconnect(); } catch (_) {}
     try { if (sourceNode) sourceNode.disconnect(); } catch (_) {}
     processorNode = null;
@@ -275,235 +171,270 @@
       audioStream.getTracks().forEach((tr) => tr.stop());
       audioStream = null;
     }
-    if (audioCtx) {
-      try { await audioCtx.close(); } catch (_) {}
-      audioCtx = null;
+    if (recCtx) {
+      try { await recCtx.close(); } catch (_) {}
+      recCtx = null;
     }
   }
 
-  function showRecordingBar(composer) {
-    removeRecordingBar();
-    const bar = document.createElement("div");
-    bar.id = "tcVoiceRecBar";
-    bar.className = "tc-rec-bar";
-    bar.innerHTML = `
-      <button type="button" class="tc-rec-cancel" title="Cancel">${ICONS.trash}</button>
-      <div class="tc-rec-status">
-        <span class="tc-rec-dot"></span>
-        <span id="tcRecTimer">0:00</span>
-        <div class="tc-mic-meter"><div id="tcMicLevelFill"></div></div>
-      </div>
-      <button type="button" class="tc-rec-send" title="Send Voice">${ICONS.send}</button>
-    `;
+  window.TCVoice = {
+    async start() {
+      stopActivePlayback();
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showToast("Is device mein microphone support nahi mil raha");
+        return false;
+      }
 
-    bar.querySelector(".tc-rec-cancel").addEventListener("click", async () => {
+      // User gesture ke andar AudioContext pehle bana lein
+      const AudioContextCls = window.AudioContext || window.webkitAudioContext;
+      try {
+        recCtx = new AudioContextCls();
+        if (recCtx.state === "suspended") await recCtx.resume();
+      } catch (err) {
+        showToast("Audio engine start nahi ho saka");
+        return false;
+      }
+
+      try {
+        audioStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
+        });
+      } catch (err) {
+        await cleanupRecorder();
+        showToast("Mic permission allow karein (Settings > Apps > TeleClone)");
+        return false;
+      }
+
+      try {
+        if (recCtx.state === "suspended") await recCtx.resume();
+        recSampleRate = recCtx.sampleRate || 44100;
+        sourceNode = recCtx.createMediaStreamSource(audioStream);
+        processorNode = recCtx.createScriptProcessor(4096, 1, 1);
+        pcmBuffers = [];
+        isCapturing = true;
+
+        const silentGain = recCtx.createGain();
+        silentGain.gain.value = 0;
+
+        processorNode.onaudioprocess = (ev) => {
+          if (!isCapturing) return;
+          pcmBuffers.push(new Float32Array(ev.inputBuffer.getChannelData(0)));
+        };
+
+        sourceNode.connect(processorNode);
+        processorNode.connect(silentGain);
+        silentGain.connect(recCtx.destination);
+        return true;
+      } catch (err) {
+        console.error("[TCVoice start]", err);
+        await cleanupRecorder();
+        showToast("Mic recording fail ho gayi");
+        return false;
+      }
+    },
+
+    async cancel() {
       pcmBuffers = [];
-      await stopAudioEngine();
-      removeRecordingBar();
-    });
+      await cleanupRecorder();
+    },
 
-    bar.querySelector(".tc-rec-send").addEventListener("click", async () => {
+    async stopAndUpload(durationStr) {
       const captured = pcmBuffers.slice();
-      const inRate = sampleRate;
-      const dur = formatTime(recordSeconds || 1);
+      const inRate = recSampleRate;
       pcmBuffers = [];
-      await stopAudioEngine();
-      removeRecordingBar();
+      await cleanupRecorder();
 
       if (!captured.length) {
-        showToast("Awaaz record nahi hui — dobara try karein");
-        return;
+        showToast("Awaaz record nahi hui — mic permission check karein");
+        return null;
       }
 
       const targetRate = 16000;
       const samples = downsampleBuffer(captured, inRate, targetRate);
-      // Check karein ke mic bilkul dead/silent to nahi tha
-      let peak = 0;
-      for (let i = 0; i < samples.length; i++) {
-        const a = Math.abs(samples[i]);
-        if (a > peak) peak = a;
-      }
-      if (peak < 0.002) {
-        showToast("Mic se awaaz nahi aayi — phone mic permission check karein");
-      }
-
       const wavBlob = encodeWavBlob(samples, targetRate);
-      await uploadAndSendVoice(wavBlob, "audio/wav", ".wav", dur);
-    });
 
-    composer.appendChild(bar);
+      const auth = getAuthHeader();
+      const filename = `voice_${Date.now()}.wav`;
+      const fd = new FormData();
+      fd.append("file", wavBlob, filename);
+
+      try {
+        const res = await origFetch("/api/upload", {
+          method: "POST",
+          headers: auth ? { Authorization: auth } : {},
+          body: fd
+        });
+        if (!res.ok) throw new Error(`Upload ${res.status}`);
+        const data = await res.json();
+        const att = data.attachment || {};
+        return {
+          type: "voice",
+          name: att.name || filename,
+          size: att.size || "",
+          src: att.src || "",
+          duration: durationStr || "0:01",
+          label: "Voice message"
+        };
+      } catch (err) {
+        console.error("[TCVoice upload]", err);
+        showToast(`Voice upload error: ${err.message}`);
+        return null;
+      }
+    }
+  };
+
+  // ===== 3. Universal Voice Bubble Player (Sender & Receiver Dono Ke Liye) =====
+  function stopActivePlayback() {
+    if (!activePlayback) return;
+    const p = activePlayback;
+    activePlayback = null;
+    if (p.rafId) cancelAnimationFrame(p.rafId);
+    if (p.audio) {
+      try { p.audio.pause(); } catch (_) {}
+    }
+    if (p.webSource) {
+      try { p.webSource.stop(); } catch (_) {}
+    }
+    if (p.webCtx) {
+      try { p.webCtx.close(); } catch (_) {}
+    }
+    if (p.btn) p.btn.textContent = "▶";
+    if (p.progressEl) p.progressEl.style.width = "0%";
+    if (p.durEl && p.origDuration) p.durEl.textContent = p.origDuration;
   }
 
-  function removeRecordingBar() {
-    const bar = document.getElementById("tcVoiceRecBar");
-    if (bar) bar.remove();
-  }
-
-  async function uploadAndSendVoice(blob, mime, ext, durationStr) {
+  async function fetchAudioBytes(src) {
+    const absUrl = new URL(src, window.location.origin).href;
+    if (audioBufferCache.has(absUrl)) {
+      return audioBufferCache.get(absUrl).slice(0);
+    }
     const auth = getAuthHeader();
-    if (!auth || !activeChatId) {
-      showToast("Session expire ho gaya, dobara login karein");
+    const res = await origFetch(absUrl, {
+      headers: auth ? { Authorization: auth } : {}
+    });
+    if (!res.ok) throw new Error(`Audio HTTP ${res.status}`);
+    const arr = await res.arrayBuffer();
+    if (!arr || arr.byteLength < 64) throw new Error("Audio file khali hai");
+    audioBufferCache.set(absUrl, arr);
+    return arr.slice(0);
+  }
+
+  async function togglePlayVoiceCard(card, btn) {
+    const src = (btn.getAttribute("data-voice-src") || card.getAttribute("data-voice-src") || "").trim();
+    if (!src) {
+      showToast("Yeh purana dummy voice note hai — naya voice record kar ke bhejein");
       return;
     }
 
-    showToast("Voice note send ho raha hai...");
-    const filename = `voice_${Date.now()}${ext}`;
+    // Agar yahi button chal raha hai to stop/pause kar dein
+    if (activePlayback && activePlayback.btn === btn) {
+      stopActivePlayback();
+      return;
+    }
+
+    stopActivePlayback();
+
+    const progressEl = card.querySelector(".voice-wave-progress");
+    const durEl = card.querySelector(".voice-duration");
+    const origDuration = durEl ? durEl.textContent : "";
+
+    btn.textContent = "…";
 
     try {
-      const upRes = await origFetch("/api/chats/upload", {
-        method: "POST",
-        headers: {
-          Authorization: auth,
-          "Content-Type": "application/octet-stream",
-          "X-Filename": encodeURIComponent(filename),
-          "X-File-Type": mime
-        },
-        body: blob
-      });
+      const arrayBuf = await fetchAudioBytes(src);
 
-      if (!upRes.ok) throw new Error(`Upload ${upRes.status}`);
-      const upData = await upRes.json();
-      const att = upData.attachment || {
-        type: "voice",
-        name: filename,
-        src: upData.url || upData.src,
-        label: `Voice message (${durationStr})`
-      };
-      att.type = "voice";
-      att.duration = durationStr;
-      att.label = `Voice message (${durationStr})`;
+      // Primary: Web Audio API (Android WebView par 100% reliable, speaker route lock nahi hota)
+      const AudioContextCls = window.AudioContext || window.webkitAudioContext;
+      if (AudioContextCls) {
+        try {
+          const webCtx = new AudioContextCls();
+          if (webCtx.state === "suspended") await webCtx.resume();
+          const decoded = await webCtx.decodeAudioData(arrayBuf.slice(0));
+          const webSource = webCtx.createBufferSource();
+          webSource.buffer = decoded;
+          webSource.connect(webCtx.destination);
 
-      const msgRes = await origFetch(`/api/chats/${activeChatId}/messages`, {
-        method: "POST",
-        headers: {
-          Authorization: auth,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ text: "", attachment: att })
-      });
+          const startTime = webCtx.currentTime;
+          const totalDur = decoded.duration || 1;
+          btn.textContent = "⏸";
 
-      if (!msgRes.ok) throw new Error(`Send ${msgRes.status}`);
-      showToast("Voice note sent");
-    } catch (err) {
-      console.error("[VoiceNote]", err);
-      showToast(`Voice send error: ${err.message}`);
-    }
-  }
+          const state = { btn, progressEl, durEl, origDuration, webSource, webCtx, rafId: null };
+          activePlayback = state;
 
-  // ===== 4. In-DOM Audio Player (Zero Silent-Playback Issues on Android) =====
-  function upgradeVoiceAttachments() {
-    const nodes = document.querySelectorAll('a[href*="/uploads/"], [data-src*="/uploads/"]');
-    for (const el of nodes) {
-      if (el.dataset.tcVoicePlayer === "1") continue;
-      const src = el.getAttribute("href") || el.getAttribute("data-src") || "";
-      if (!AUDIO_EXT_RE.test(src)) continue;
+          const tick = () => {
+            if (activePlayback !== state) return;
+            const elapsed = webCtx.currentTime - startTime;
+            const pct = Math.min(100, (elapsed / totalDur) * 100);
+            if (progressEl) progressEl.style.width = `${pct}%`;
+            if (durEl) durEl.textContent = formatTime(elapsed);
+            if (elapsed < totalDur) {
+              state.rafId = requestAnimationFrame(tick);
+            }
+          };
+          state.rafId = requestAnimationFrame(tick);
 
-      el.dataset.tcVoicePlayer = "1";
-      const player = buildVoicePlayerElement(src);
-      el.replaceWith(player);
-    }
-  }
+          webSource.onended = () => {
+            if (activePlayback === state) stopActivePlayback();
+          };
 
-  function buildVoicePlayerElement(src) {
-    const absSrc = new URL(src, window.location.origin).href;
-    const wrap = document.createElement("div");
-    wrap.className = "tc-voice-player";
-    wrap.innerHTML = `
-      <button type="button" class="tc-vp-btn" aria-label="Play voice note">${ICONS.play}</button>
-      <div class="tc-vp-track-wrap">
-        <div class="tc-vp-bar"><div class="tc-vp-fill"></div></div>
-        <div class="tc-vp-meta"><span class="tc-vp-time">0:00</span><span>Voice note</span></div>
-      </div>
-      <audio preload="metadata" playsinline style="display:none"></audio>
-    `;
-
-    const audio = wrap.querySelector("audio");
-    audio.src = absSrc;
-    audio.muted = false;
-    audio.volume = 1.0;
-
-    const btn = wrap.querySelector(".tc-vp-btn");
-    const bar = wrap.querySelector(".tc-vp-bar");
-    const fill = wrap.querySelector(".tc-vp-fill");
-    const timeEl = wrap.querySelector(".tc-vp-time");
-    let blobFallbackTried = false;
-
-    audio.addEventListener("loadedmetadata", () => {
-      if (isFinite(audio.duration) && audio.duration > 0) {
-        timeEl.textContent = formatTime(audio.duration);
+          webSource.start(0);
+          return;
+        } catch (webErr) {
+          console.warn("[Voice WebAudio fallback]", webErr);
+        }
       }
-    });
 
-    audio.addEventListener("timeupdate", () => {
-      if (isFinite(audio.duration) && audio.duration > 0) {
-        const pct = (audio.currentTime / audio.duration) * 100;
-        fill.style.width = `${Math.min(100, pct)}%`;
-      }
-      timeEl.textContent = formatTime(audio.currentTime);
-    });
-
-    audio.addEventListener("ended", () => {
-      btn.innerHTML = ICONS.play;
-      fill.style.width = "0%";
-      if (isFinite(audio.duration) && audio.duration > 0) {
-        timeEl.textContent = formatTime(audio.duration);
-      }
-      if (currentlyPlayingAudio === audio) currentlyPlayingAudio = null;
-    });
-
-    audio.addEventListener("pause", () => {
-      btn.innerHTML = ICONS.play;
-    });
-
-    async function playWithFallback() {
-      if (currentlyPlayingAudio && currentlyPlayingAudio !== audio) {
-        currentlyPlayingAudio.pause();
-      }
-      currentlyPlayingAudio = audio;
+      // Secondary Fallback: Blob HTMLAudioElement
+      const blobUrl = URL.createObjectURL(new Blob([arrayBuf], { type: "audio/wav" }));
+      const audio = new Audio(blobUrl);
       audio.muted = false;
       audio.volume = 1.0;
 
-      try {
-        await audio.play();
-        btn.innerHTML = ICONS.pause;
-      } catch (err) {
-        if (!blobFallbackTried) {
-          blobFallbackTried = true;
-          try {
-            const resp = await origFetch(absSrc);
-            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-            const b = await resp.blob();
-            audio.src = URL.createObjectURL(b);
-            audio.load();
-            await audio.play();
-            btn.innerHTML = ICONS.pause;
-            return;
-          } catch (e2) {
-            console.error("[VoicePlayFallback]", e2);
-          }
+      const state = { btn, progressEl, durEl, origDuration, audio };
+      activePlayback = state;
+
+      audio.addEventListener("timeupdate", () => {
+        if (activePlayback !== state) return;
+        if (isFinite(audio.duration) && audio.duration > 0) {
+          if (progressEl) progressEl.style.width = `${Math.min(100, (audio.currentTime / audio.duration) * 100)}%`;
         }
-        showToast("Audio play nahi ho saka (media volume check karein)");
-      }
+        if (durEl) durEl.textContent = formatTime(audio.currentTime);
+      });
+
+      audio.addEventListener("ended", () => {
+        URL.revokeObjectURL(blobUrl);
+        if (activePlayback === state) stopActivePlayback();
+      });
+
+      await audio.play();
+      btn.textContent = "⏸";
+    } catch (err) {
+      console.error("[VoicePlay]", err);
+      btn.textContent = "▶";
+      showToast(`Audio play error: ${err.message}`);
     }
-
-    btn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (audio.paused) playWithFallback();
-      else audio.pause();
-    });
-
-    bar.addEventListener("click", (e) => {
-      if (!audio.duration || !isFinite(audio.duration)) return;
-      const rect = bar.getBoundingClientRect();
-      const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      audio.currentTime = ratio * audio.duration;
-    });
-
-    return wrap;
   }
 
-  // ===== 5. Chat Header Click -> Pro User Info Profile Sheet =====
+  document.addEventListener(
+    "click",
+    (e) => {
+      const btn = e.target.closest(".voice-play-btn");
+      if (!btn) return;
+      const card = btn.closest(".msg-voice-card");
+      if (!card) return;
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      togglePlayVoiceCard(card, btn);
+    },
+    true
+  );
+
+  // ===== 4. Chat Header Click -> Pro User Info Profile Sheet =====
   function readHeaderFallback(header) {
     const img = header ? header.querySelector("img") : null;
     const titleEl = header
@@ -515,32 +446,32 @@
     };
   }
 
-  function setupHeaderProfileClick() {
-    document.addEventListener(
-      "click",
-      (e) => {
-        if (!activeChatId) return;
-        const header = e.target.closest(
-          ".chat-header, #chatHeader, .conversation-header, .chat-top-bar"
-        );
-        if (!header) return;
+  document.addEventListener(
+    "click",
+    (e) => {
+      const header = e.target.closest(
+        ".chat-header, #chatHeader, .conversation-header, .chat-top-bar"
+      );
+      if (!header) return;
 
-        const clickedBtn = e.target.closest("button");
-        if (clickedBtn) {
-          const cls = (clickedBtn.className || "").toLowerCase();
-          const aria = (clickedBtn.getAttribute("aria-label") || "").toLowerCase();
-          const isAvatarBtn =
-            cls.includes("avatar") || cls.includes("profile") || cls.includes("user") || aria.includes("profile");
-          if (!isAvatarBtn) return;
-        }
+      const chatId = getCurrentChatId();
+      if (!chatId) return;
 
-        e.preventDefault();
-        e.stopPropagation();
-        openUserInfoSheet(activeChatId, readHeaderFallback(header));
-      },
-      true
-    );
-  }
+      const clickedBtn = e.target.closest("button");
+      if (clickedBtn) {
+        const cls = (clickedBtn.className || "").toLowerCase();
+        const aria = (clickedBtn.getAttribute("aria-label") || "").toLowerCase();
+        const isAvatarBtn =
+          cls.includes("avatar") || cls.includes("profile") || cls.includes("user") || aria.includes("profile");
+        if (!isAvatarBtn) return;
+      }
+
+      e.preventDefault();
+      e.stopPropagation();
+      openUserInfoSheet(chatId, readHeaderFallback(header));
+    },
+    true
+  );
 
   async function openUserInfoSheet(chatId, fallback) {
     const auth = getAuthHeader();
@@ -556,8 +487,6 @@
         headers: { Authorization: auth }
       });
       if (!res.ok) {
-        const errTxt = await res.text().catch(() => "");
-        console.error("[UserInfo HTTP]", res.status, errTxt);
         showToast(`User info error (${res.status})`);
         renderProfileSheet({
           loading: false,
@@ -572,7 +501,7 @@
       renderProfileSheet({ loading: false, data });
     } catch (err) {
       console.error("[UserInfo]", err);
-      showToast("Network error: User info load nahi ho saki");
+      showToast("User info load nahi ho saki");
       renderProfileSheet({
         loading: false,
         data: { chat: { title: fallback.title, avatar: fallback.avatar, type: "private" }, user: null }
@@ -708,16 +637,4 @@
 
     document.body.appendChild(backdrop);
   }
-
-  function syncAll() {
-    injectMicButton();
-    upgradeVoiceAttachments();
-  }
-
-  window.addEventListener("DOMContentLoaded", () => {
-    setupHeaderProfileClick();
-    syncAll();
-    const obs = new MutationObserver(syncAll);
-    obs.observe(document.body, { childList: true, subtree: true });
-  });
 })();
