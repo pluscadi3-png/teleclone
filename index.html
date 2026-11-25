@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>TeleClone</title>
+  <link rel="stylesheet" href="css/variables.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/chat.css" />
+  <link rel="stylesheet" href="css/modals.css" />
+  <link rel="stylesheet" href="css/settings.css" />
+  <link rel="stylesheet" href="css/auth.css" />
+  <link rel="stylesheet" href="css/bottomNav.css" />
+  <link rel="stylesheet" href="css/uiFixes.css" />
+</head>
+<body>
+  <div id="app" class="app-container">
+
+    <!-- ==================== SIDE NAVIGATION DRAWER ==================== -->
+    <div id="drawer-overlay" class="drawer-overlay hidden"></div>
+    <aside id="nav-drawer" class="nav-drawer">
+      <div class="drawer-header">
+        <div class="drawer-top-row">
+          <div id="drawer-avatar" class="avatar avatar-lg">GF</div>
+          <button id="theme-toggle-btn" class="icon-btn theme-btn" title="Toggle Dark/Light Mode" aria-label="Toggle Theme">
+            <!-- Sun/Moon icon JS se update hoga -->
+            <svg id="theme-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="5"></circle>
+              <line x1="12" y1="1" x2="12" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="23"></line>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+              <line x1="1" y1="12" x2="3" y2="12"></line>
+              <line x1="21" y1="12" x2="23" y2="12"></line>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+          </button>
+        </div>
+        <div id="account-switcher-trigger" class="drawer-user-info">
+          <div>
+            <div id="drawer-user-name" class="drawer-name">User Name</div>
+            <div id="drawer-user-phone" class="drawer-phone">+92 300 0000000</div>
+          </div>
+          <svg class="chevron-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Multi-Account Switcher Dropdown -->
+      <div id="account-list" class="account-list hidden"></div>
+
+      <nav class="drawer-menu">
+        <button class="drawer-item" data-action="my-profile">
+          <span class="drawer-icon">👤</span>
+          <span>My Profile</span>
+        </button>
+        <button class="drawer-item" data-action="wallet">
+          <span class="drawer-icon">💎</span>
+          <span>Wallet</span>
+          <span class="drawer-pill">TON</span>
+        </button>
+        <div class="drawer-divider"></div>
+        <button class="drawer-item" data-action="new-group">
+          <span class="drawer-icon">👥</span>
+          <span>New Group</span>
+        </button>
+        <button class="drawer-item" data-action="new-channel">
+          <span class="drawer-icon">📢</span>
+          <span>New Channel</span>
+        </button>
+        <button class="drawer-item" data-action="open-botfather">
+          <span class="drawer-icon">🤖</span>
+          <span>Create a Bot (@BotFather)</span>
+        </button>
+        <button class="drawer-item" data-action="contacts">
+          <span class="drawer-icon">📇</span>
+          <span>Contacts</span>
+        </button>
+        <button class="drawer-item" data-action="calls">
+          <span class="drawer-icon">📞</span>
+          <span>Calls</span>
+        </button>
+        <button class="drawer-item" data-action="saved-messages">
+          <span class="drawer-icon">🔖</span>
+          <span>Saved Messages</span>
+        </button>
+        <div class="drawer-divider"></div>
+        <button class="drawer-item" data-action="settings">
+          <span class="drawer-icon">⚙️</span>
+          <span>Settings</span>
+        </button>
+      </nav>
+      <div class="drawer-footer">TeleClone UI v1.0 • Bot-Ready Engine</div>
+    </aside>
+
+    <!-- ==================== LEFT SIDEBAR (MAIN SCREEN) ==================== -->
+    <section id="sidebar" class="sidebar">
+      
+      <!-- Top Bar -->
+      <header class="sidebar-header">
+        <button id="menu-btn" class="icon-btn" title="Menu" aria-label="Open Menu">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2">
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+
+        <div class="search-box">
+          <svg class="search-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="global-search" placeholder="Search chats, @bots, channels..." autocomplete="off" />
+          <button id="search-clear-btn" class="search-clear hidden" aria-label="Clear search">&times;</button>
+        </div>
+      </header>
+
+      <!-- Global Search Filter Tabs (Sirf search ke waqt show honge) -->
+      <div id="search-tabs" class="search-tabs hidden">
+        <button class="search-tab active" data-search-type="all">Chats</button>
+        <button class="search-tab" data-search-type="bot">Bots</button>
+        <button class="search-tab" data-search-type="channel">Channels</button>
+        <button class="search-tab" data-search-type="group">Groups</button>
+      </div>
+
+      <!-- Stories Bar -->
+      <div id="stories-bar" class="stories-bar">
+        <!-- JS se render hoga -->
+      </div>
+
+      <!-- Chat Folders Bar -->
+      <div id="folders-bar" class="folders-bar">
+        <!-- JS se render hoga -->
+      </div>
+
+      <!-- Archived Chats Header (Jab Archive view open ho) -->
+      <div id="archive-view-header" class="archive-view-header hidden">
+        <button id="exit-archive-btn" class="icon-btn" aria-label="Back">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+        </button>
+        <span>Archived Chats</span>
+      </div>
+
+      <!-- Archived Chats Banner Row -->
+      <div id="archived-banner" class="archived-banner hidden">
+        <div class="archive-icon-box">📦</div>
+        <div class="archive-info">
+          <div class="archive-title">Archived Chats</div>
+          <div id="archived-preview" class="archive-subtitle">Muted & archived chats</div>
+        </div>
+        <span id="archived-count-badge" class="badge badge-muted">0</span>
+      </div>
+
+      <!-- Chat List -->
+      <main id="chat-list" class="chat-list">
+        <!-- Chat rows JS se render hongi -->
+      </main>
+
+      <!-- Floating Action Button (FAB) & Quick Menu -->
+      <div id="fab-menu" class="fab-menu hidden">
+        <button class="fab-menu-item" data-action="new-group">👥 New Group</button>
+        <button class="fab-menu-item" data-action="new-channel">📢 New Channel</button>
+        <button class="fab-menu-item" data-action="new-secret">🔒 New Secret Chat</button>
+        <button class="fab-menu-item" data-action="open-botfather">🤖 Create New Bot</button>
+      </div>
+      <button id="fab-btn" class="fab-btn" title="New Message" aria-label="New Message">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M12 20h9"></path>
+          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+        </svg>
+      </button>
+
+      <!-- Right-Click / Long-Press Context Menu for Chats -->
+      <div id="chat-context-menu" class="context-menu hidden">
+        <button class="context-item" data-ctx="pin">📌 <span id="ctx-pin-label">Pin Chat</span></button>
+        <button class="context-item" data-ctx="mute">🔇 <span id="ctx-mute-label">Mute</span></button>
+        <button class="context-item" data-ctx="read">✓ <span id="ctx-read-label">Mark as Read</span></button>
+        <button class="context-item" data-ctx="archive">📦 <span id="ctx-archive-label">Archive</span></button>
+        <div class="context-divider"></div>
+        <button class="context-item danger" data-ctx="delete">🗑️ Delete Chat</button>
+      </div>
+      <!-- ==================== CHAT / GROUP / BOT INFO PANEL (MODULE 3) ==================== -->
+    <aside id="info-panel" class="info-panel hidden">
+      <header class="info-panel-header">
+        <button id="info-panel-close" class="icon-btn" aria-label="Close Info">&times;</button>
+        <span id="info-panel-heading">Chat Info</span>
+      </header>
+      <div id="info-panel-body" class="info-panel-body">
+        <!-- JS (social.js) se render hoga -->
+      </div>
+    </aside>
+
+    </section>
+
+    <!-- ==================== RIGHT PANE (CHAT WORKSPACE - MODULE 2 READY) ==================== -->
+    <section id="chat-workspace" class="chat-workspace">
+      <div id="chat-empty-state" class="chat-empty-state">
+        <div class="empty-pill">Select a chat to start messaging</div>
+      </div>
+
+      <!-- Active Chat Preview Shell (Module 2 mein isay full interactive chat banayenge) -->
+      <!-- Active Chat Screen (Module 2 Full Interactive UI) -->
+      <div id="active-chat-shell" class="active-chat-shell hidden">
+        <span id="preview-chat-desc" class="hidden"></span>
+
+        <!-- Chat Header -->
+        <header class="chat-header">
+          <div class="chat-header-left">
+            <button id="mobile-back-btn" class="icon-btn mobile-only" aria-label="Back to chats">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+              </svg>
+            </button>
+            <div id="preview-chat-avatar" class="avatar avatar-sm"></div>
+            <div class="preview-chat-meta">
+              <div id="preview-chat-title" class="preview-chat-title">Chat Name</div>
+              <div id="preview-chat-status" class="preview-chat-status">online</div>
+            </div>
+          </div>
+
+          <div class="chat-header-actions">
+            <button id="chat-search-toggle" class="icon-btn" title="Search in chat" aria-label="Search in chat">
+              <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </button>
+            <button id="chat-call-btn" class="icon-btn" title="Voice Call" aria-label="Voice Call">
+              <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path>
+              </svg>
+            </button>
+            <button id="chat-more-btn" class="icon-btn" title="More options" aria-label="More options">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <circle cx="12" cy="5" r="1.8"></circle>
+                <circle cx="12" cy="12" r="1.8"></circle>
+                <circle cx="12" cy="19" r="1.8"></circle>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Header 3-Dots Dropdown -->
+          <div id="chat-more-menu" class="chat-dropdown hidden">
+            <button class="chat-dropdown-item" data-chat-action="mute">🔇 <span id="chat-menu-mute-label">Mute Notifications</span></button>
+            <button class="chat-dropdown-item" data-chat-action="search">🔍 Search Messages</button>
+            <button class="chat-dropdown-item" data-chat-action="auto-delete">⏱️ Auto-Delete Timer</button>
+            <div class="context-divider"></div>
+            <button class="chat-dropdown-item danger" data-chat-action="clear">🧹 Clear History</button>
+          </div>
+        </header>
+
+        <!-- In-Chat Search Bar -->
+        <div id="in-chat-search-bar" class="in-chat-search-bar hidden">
+          <input type="text" id="in-chat-search-input" placeholder="Search messages in this chat..." autocomplete="off" />
+          <span id="in-chat-search-count" class="search-match-count"></span>
+          <button id="in-chat-search-close" class="icon-btn" aria-label="Close search">&times;</button>
+        </div>
+
+        <!-- Pinned Message Bar -->
+        <div id="pinned-bar" class="pinned-bar hidden">
+          <div class="pinned-bar-accent"></div>
+          <div class="pinned-bar-content">
+            <div class="pinned-bar-label">Pinned Message</div>
+            <div id="pinned-bar-text" class="pinned-bar-text">...</div>
+          </div>
+          <button id="unpin-bar-btn" class="icon-btn" title="Unpin message">&times;</button>
+        </div>
+
+        <!-- Messages List Area -->
+        <div id="messages-container" class="messages-container">
+          <!-- Messages JS se render honge -->
+        </div>
+
+        <!-- Scroll To Bottom Button -->
+        <button id="scroll-bottom-btn" class="scroll-bottom-btn hidden" title="Scroll to bottom">↓</button>
+
+        <!-- Reply / Edit Preview Banner -->
+        <div id="composer-banner" class="composer-banner hidden">
+          <div class="composer-banner-bar"></div>
+          <div class="composer-banner-body">
+            <div id="composer-banner-title" class="composer-banner-title">Reply to Hamza</div>
+            <div id="composer-banner-text" class="composer-banner-text">Message text...</div>
+          </div>
+          <button id="composer-banner-close" class="icon-btn" aria-label="Cancel">&times;</button>
+        </div>
+
+        <!-- Bot Slash Command Popup (/) -->
+        <div id="bot-commands-popup" class="composer-popup bot-commands-popup hidden">
+          <div class="popup-header">Bot Commands</div>
+          <div id="bot-commands-list" class="bot-commands-list"></div>
+        </div>
+
+        <!-- Emoji Picker Popup -->
+        <div id="emoji-popup" class="composer-popup emoji-popup hidden">
+          <div class="popup-header">Emojis & Quick Format: **bold** *italic* `code` ||spoiler||</div>
+          <div id="emoji-grid" class="emoji-grid"></div>
+        </div>
+
+        <!-- Attachment Popup Menu -->
+        <div id="attach-menu" class="composer-popup attach-menu hidden">
+          <button class="attach-item" data-attach="photo">🖼️ Photo / Video</button>
+          <button class="attach-item" data-attach="file">📄 Document / File</button>
+          <button class="attach-item" data-attach="poll">📊 Create Poll</button>
+          <button class="attach-item" data-attach="location">📍 Share Location</button>
+        </div>
+
+        <!-- Send Button Long-Press / Right-Click Menu -->
+        <div id="send-options-menu" class="composer-popup send-options-menu hidden">
+          <button class="attach-item" data-send-mode="silent">🔕 Send Without Sound</button>
+          <button class="attach-item" data-send-mode="schedule">📅 Schedule Message (+1 min)</button>
+        </div>
+
+        <!-- Hidden File Picker -->
+        <input type="file" id="chat-file-input" class="hidden" />
+
+        <!-- Bot First-Time START Button Bar -->
+        <div id="bot-start-bar" class="bot-start-bar hidden">
+          <button id="bot-start-btn" class="bot-start-btn">START</button>
+        </div>
+
+        <!-- Bottom Message Composer Bar -->
+        <footer id="chat-composer" class="chat-composer">
+          <!-- Bot Commands Menu Button (Sirf Bot chats mein dikhega) -->
+          <button id="bot-menu-btn" class="bot-menu-btn hidden" title="Bot Commands Menu">
+            <span>☰</span>
+            <span>Menu</span>
+          </button>
+
+          <!-- Normal Composer Box -->
+          <div id="composer-input-wrap" class="composer-input-wrap">
+            <button id="emoji-btn" class="icon-btn" title="Emoji">😊</button>
+            <textarea id="msg-input" rows="1" placeholder="Write a message..."></textarea>
+            <button id="reply-kb-toggle-btn" class="icon-btn hidden" title="Toggle Bot Keyboard">⌨️</button>
+            <button id="attach-btn" class="icon-btn" title="Attach">📎</button>
+          </div>
+
+          <!-- Voice Recording Active Bar -->
+          <div id="recording-bar" class="recording-bar hidden">
+            <span class="rec-dot"></span>
+            <span id="rec-timer" class="rec-timer">0:00</span>
+            <span class="rec-label">Recording voice note...</span>
+            <button id="rec-cancel-btn" class="rec-cancel-btn">Cancel</button>
+          </div>
+
+          <!-- Dynamic Action Button: Mic/Video OR Send -->
+          <button id="composer-action-btn" class="composer-action-btn" title="Hold or click to record / Right-click send for options">
+            🎤
+          </button>
+        </footer>
+
+        <!-- Custom Bot Reply Keyboard -->
+        <div id="bot-reply-keyboard" class="bot-reply-keyboard hidden"></div>
+
+        <!-- Message Context Menu (Right-Click / Click Action) -->
+        <div id="msg-context-menu" class="context-menu msg-context-menu hidden">
+          <div id="quick-reactions-row" class="quick-reactions-row">
+            <button class="quick-react-btn" data-react="👍">👍</button>
+            <button class="quick-react-btn" data-react="❤️">❤️</button>
+            <button class="quick-react-btn" data-react="🔥">🔥</button>
+            <button class="quick-react-btn" data-react="😂">😂</button>
+            <button class="quick-react-btn" data-react="⚡">⚡</button>
+            <button class="quick-react-btn" data-react="🎉">🎉</button>
+          </div>
+          <div class="context-divider"></div>
+          <button class="context-item" data-msg-ctx="reply">↩️ Reply</button>
+          <button class="context-item" data-msg-ctx="edit" id="msg-ctx-edit">✏️ Edit</button>
+          <button class="context-item" data-msg-ctx="pin">📌 Pin</button>
+          <button class="context-item" data-msg-ctx="copy">📋 Copy Text</button>
+          <button class="context-item" data-msg-ctx="forward">↪️ Forward to Saved</button>
+          <div class="context-divider"></div>
+          <button class="context-item danger" data-msg-ctx="delete">🗑️ Delete</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+  </div>
+
+  <script src="js/store.js"></script>
+  <script src="js/main.js"></script>
+<!-- Bot Mini App Slide-Up Modal -->
+  <div id="mini-app-modal" class="mini-app-modal hidden">
+    <div class="mini-app-sheet">
+      <header class="mini-app-header">
+        <button id="mini-app-close" class="icon-btn">&times;</button>
+        <div class="mini-app-title-wrap">
+          <div id="mini-app-title" class="mini-app-title">Bot Mini App</div>
+          <div id="mini-app-subtitle" class="mini-app-subtitle">@BotMiniApp</div>
+        </div>
+        <span class="bot-badge">MINI APP</span>
+      </header>
+      <div id="mini-app-body" class="mini-app-body"></div>
+    </div>
+  </div>
+
+  <!-- ==================== STORIES VIEWER OVERLAY ==================== -->
+  <div id="story-viewer" class="story-viewer hidden">
+    <div class="story-card">
+      <div class="story-progress-track">
+        <div id="story-progress-fill" class="story-progress-fill"></div>
+      </div>
+      <div class="story-viewer-header">
+        <div id="story-viewer-avatar" class="avatar avatar-sm"></div>
+        <div class="story-viewer-meta">
+          <div id="story-viewer-name" class="story-viewer-name">Name</div>
+          <div id="story-viewer-time" class="story-viewer-time">Just now</div>
+        </div>
+        <button id="story-viewer-close" class="icon-btn story-close-btn">&times;</button>
+      </div>
+      <div id="story-viewer-canvas" class="story-viewer-canvas">
+        <div id="story-viewer-text" class="story-viewer-text">Story content</div>
+      </div>
+      <div class="story-viewer-footer">
+        <input type="text" id="story-reply-input" placeholder="Reply to story..." autocomplete="off" />
+        <button id="story-like-btn" class="story-footer-btn" title="Like Story">🤍</button>
+        <button id="story-send-reply-btn" class="story-footer-btn" title="Send Reply">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== GENERIC MODAL (NEW GROUP / CHANNEL / CONTACTS / CALLS) ==================== -->
+  <div id="app-modal" class="app-modal hidden">
+    <div class="app-modal-dialog">
+      <header class="app-modal-header">
+        <h3 id="app-modal-title">Modal Title</h3>
+        <button id="app-modal-close" class="icon-btn" aria-label="Close">&times;</button>
+      </header>
+      <div id="app-modal-body" class="app-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- ==================== ACTIVE VOICE / VIDEO CALL OVERLAY ==================== -->
+  <div id="call-overlay" class="call-overlay hidden">
+    <div class="call-card">
+      <div class="call-top-badge">🔒 End-to-End Encrypted</div>
+      <div id="call-avatar" class="avatar call-avatar-xl">HK</div>
+      <div id="call-name" class="call-name">Hamza Khan</div>
+      <div id="call-status" class="call-status">Ringing...</div>
+      <div class="call-controls">
+        <button id="call-mute-btn" class="call-ctrl-btn" title="Mute Mic">🎙️</button>
+        <button id="call-speaker-btn" class="call-ctrl-btn" title="Speaker">🔊</button>
+        <button id="call-video-btn" class="call-ctrl-btn" title="Toggle Video">📹</button>
+        <button id="call-end-btn" class="call-ctrl-btn call-end" title="End Call">📞</button>
+      </div>
+    </div>
+  </div>
+  <!-- ==================== FULL SETTINGS OVERLAY (MODULE 4) ==================== -->
+  <div id="settings-overlay" class="settings-overlay hidden">
+    <div class="settings-shell">
+      <header class="settings-header">
+        <button id="settings-back-btn" class="icon-btn hidden" aria-label="Back">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+        </button>
+        <h3 id="settings-title" class="settings-title">Settings</h3>
+        <div class="settings-header-right">
+          <button id="lock-now-btn" class="icon-btn hidden" title="Lock App Now">🔒</button>
+          <button id="settings-close-btn" class="icon-btn" aria-label="Close Settings">&times;</button>
+        </div>
+      </header>
+      <div id="settings-body" class="settings-body">
+        <!-- JS (settings.js) se render hoga -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== PASSCODE LOCK SCREEN OVERLAY ==================== -->
+  <div id="passcode-lock-screen" class="passcode-lock-screen hidden">
+    <div class="passcode-box">
+      <div class="passcode-lock-icon">🔒</div>
+      <h2 class="passcode-title">TeleClone Locked</h2>
+      <p id="passcode-subtitle" class="passcode-subtitle">Enter your 4-digit passcode to unlock</p>
+      <div id="passcode-dots" class="passcode-dots">
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+      </div>
+      <div id="passcode-error" class="passcode-error"></div>
+      <div id="passcode-keypad" class="passcode-keypad">
+        <button class="pin-key" data-pin="1">1</button>
+        <button class="pin-key" data-pin="2">2</button>
+        <button class="pin-key" data-pin="3">3</button>
+        <button class="pin-key" data-pin="4">4</button>
+        <button class="pin-key" data-pin="5">5</button>
+        <button class="pin-key" data-pin="6">6</button>
+        <button class="pin-key" data-pin="7">7</button>
+        <button class="pin-key" data-pin="8">8</button>
+        <button class="pin-key" data-pin="9">9</button>
+        <button class="pin-key pin-key-fn" data-pin="clear">C</button>
+        <button class="pin-key" data-pin="0">0</button>
+        <button class="pin-key pin-key-fn" data-pin="back">⌫</button>
+      </div>
+    </div>
+  </div>
+<!-- ==================== LIVE LOGIN / OTP ONBOARDING SCREEN ==================== -->
+  <div id="auth-screen" class="auth-screen hidden">
+    <div class="auth-card">
+      <div class="auth-logo">✈️</div>
+      <h2 id="auth-heading" class="auth-heading">Sign in to TeleClone</h2>
+      <p id="auth-sub" class="auth-sub">Enter your phone number to receive a login code.</p>
+
+      <!-- Step 1: Phone Number -->
+      <div id="auth-step-phone" class="auth-step">
+        <div class="form-group">
+          <label class="form-label">Phone Number (with country code)</label>
+          <input id="auth-phone-input" class="form-input" type="tel" placeholder="+923001234567" autocomplete="tel" />
+        </div>
+        <button id="auth-send-otp-btn" class="primary-btn">Send Login Code</button>
+      </div>
+
+      <!-- Step 2: OTP & New Account Setup -->
+      <div id="auth-step-otp" class="auth-step hidden">
+        <div id="auth-demo-otp-box" class="auth-demo-otp hidden"></div>
+
+        <div class="form-group">
+          <label class="form-label">5-Digit OTP Code</label>
+          <input id="auth-otp-input" class="form-input" type="text" inputmode="numeric" maxlength="5" placeholder="12345" autocomplete="one-time-code" />
+        </div>
+
+        <div id="auth-register-fields" class="auth-register-fields hidden">
+          <div class="form-group">
+            <label class="form-label">Your Full Name</label>
+            <input id="auth-name-input" class="form-input" type="text" placeholder="e.g. Ali Raza" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Choose @username</label>
+            <input id="auth-username-input" class="form-input" type="text" placeholder="e.g. ali_raza" />
+          </div>
+        </div>
+
+        <button id="auth-verify-otp-btn" class="primary-btn">Continue</button>
+        <button id="auth-back-phone-btn" class="secondary-btn">Change Phone Number</button>
+      </div>
+
+      <div id="auth-error" class="auth-error"></div>
+    </div>
+  </div>
+
+  <script src="js/store.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/botEngine.js"></script>
+  <script src="js/chat.js"></script>
+  <script src="js/social.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/liveBridge.js"></script>
+  <script src="js/bottomNav.js"></script>
+  <script src="js/uiFixes.js"></script>
+
+</body>
+</html>

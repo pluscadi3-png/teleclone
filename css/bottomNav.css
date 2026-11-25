@@ -1,0 +1,384 @@
+/* =========================================================
+   TELEGRAM-STYLE 4-TAB BOTTOM NAVIGATION BAR
+   ========================================================= */
+
+/* Purple Pen FAB aur Menu ko bottom bar se upar shift karein */
+.sidebar .fab-btn {
+  bottom: 76px !important;
+}
+
+.sidebar .fab-menu {
+  bottom: 140px !important;
+}
+
+/* Inline Tab Panel (Contacts / Calls / Settings inside Sidebar) */
+.sidebar-tab-panel {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 6px 10px 14px;
+  gap: 8px;
+}
+
+.tab-panel-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 4px 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tab-panel-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.tab-pill-btn {
+  padding: 6px 12px;
+  border-radius: 16px;
+  background-color: var(--accent-soft);
+  color: var(--accent-color);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.tab-pill-btn:hover {
+  background-color: var(--accent-color);
+  color: #ffffff;
+}
+
+.calls-filter-bar {
+  display: flex;
+  background-color: var(--bg-secondary);
+  padding: 3px;
+  border-radius: 10px;
+  gap: 4px;
+}
+
+.calls-filter-btn {
+  flex: 1;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.calls-filter-btn.active {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.tab-row-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.tab-row-item:hover {
+  background-color: var(--bg-hover);
+}
+
+.tab-row-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.tab-row-name {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-row-sub {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.tab-row-sub.online {
+  color: var(--accent-color);
+}
+
+.tab-row-sub.missed {
+  color: var(--danger-color);
+}
+
+/* ==================== BOTTOM NAV BAR ==================== */
+.bottom-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  height: 58px;
+  padding: 4px 6px env(safe-area-inset-bottom, 4px);
+  background-color: var(--bg-primary);
+  border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
+  z-index: 30;
+}
+
+.bottom-nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 4px 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  position: relative;
+  transition: color var(--transition-fast);
+}
+
+.bottom-nav-item:hover {
+  color: var(--text-primary);
+}
+
+.bottom-nav-item.active {
+  color: var(--accent-color);
+}
+
+.bottom-nav-icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 24px;
+}
+
+.bottom-nav-icon-wrap svg {
+  width: 23px;
+  height: 23px;
+}
+
+.bottom-nav-badge {
+  position: absolute;
+  top: -4px;
+  right: -10px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background-color: #ff3b30;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.bottom-nav-badge.hidden {
+  display: none;
+}
+
+/* ==================== TELEGRAM PROFILE TAB VIEW ==================== */
+.profile-hero-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 14px 10px 12px;
+}
+
+.profile-avatar-xl {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  font-size: 32px;
+  font-weight: 700;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  margin-bottom: 10px;
+}
+
+.profile-avatar-xl img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.profile-hero-name {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.profile-hero-status {
+  font-size: 13px;
+  color: var(--accent-color);
+  margin-top: 2px;
+}
+
+.profile-actions-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 4px 0 6px;
+}
+
+.profile-action-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 10px 6px;
+  border-radius: 12px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--accent-color);
+  font-size: 12px;
+  font-weight: 600;
+  transition: background-color var(--transition-fast);
+}
+
+.profile-action-card:hover {
+  background-color: var(--bg-hover);
+}
+
+.profile-action-card span:first-child {
+  font-size: 18px;
+}
+
+.profile-info-card {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.profile-info-row {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.profile-info-row:last-child {
+  border-bottom: none;
+}
+
+.profile-info-val {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.profile-info-lbl {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.profile-posts-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.profile-posts-tabs {
+  flex: 1;
+  display: flex;
+  background-color: var(--bg-secondary);
+  padding: 3px;
+  border-radius: 10px;
+  gap: 4px;
+}
+
+.profile-post-tab {
+  flex: 1;
+  padding: 7px 6px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.profile-post-tab.active {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.profile-add-post-btn {
+  padding: 8px 12px;
+  border-radius: 10px;
+  background-color: var(--accent-color);
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.profile-add-post-btn:hover {
+  background-color: var(--accent-hover);
+}
+
+.profile-posts-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.profile-post-tile {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  text-align: center;
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  background-color: var(--bg-secondary);
+}
+
+.profile-post-tile img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-post-empty {
+  text-align: center;
+  padding: 26px 14px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  background-color: var(--bg-secondary);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}

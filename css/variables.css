@@ -1,0 +1,145 @@
+/* =========================================================
+   TELECLONE THEME & DESIGN TOKENS (LIGHT + DARK MODE)
+   ========================================================= */
+
+:root {
+  /* Core Layout */
+  --sidebar-width: 380px;
+  --header-height: 56px;
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  
+  /* Dynamic Settings Variables (Module 4 mein live control honge) */
+  --chat-font-size: 15px;
+  --bubble-radius: 14px;
+  --accent-color: #3390ec;
+  --accent-hover: #287dd1;
+  --accent-soft: rgba(51, 144, 236, 0.14);
+
+  /* Light Theme Colors (Default Fallback) */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f4f4f5;
+  --bg-hover: #f1f3f5;
+  --bg-active-chat: #3390ec;
+  --bg-chat-canvas: #8babd8;
+  --bg-drawer: #ffffff;
+  --bg-elevated: #ffffff;
+  --border-color: #e4e6eb;
+
+  /* Text Colors */
+  --text-primary: #111b21;
+  --text-secondary: #707579;
+  --text-muted: #99a2ad;
+  --text-on-accent: #ffffff;
+
+  /* Badges & Status */
+  --badge-bg: #3390ec;
+  --badge-muted-bg: #c4c9cc;
+  --badge-text: #ffffff;
+  --online-dot: #4dcd5e;
+  --bot-badge-bg: rgba(51, 144, 236, 0.16);
+  --bot-badge-text: #227ad3;
+  --danger-color: #e53935;
+
+  /* Story Ring Gradient */
+  --story-ring: linear-gradient(135deg, #34d399, #3b82f6, #8b5cf6);
+  --story-ring-seen: #c4c9cc;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.16);
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.25);
+
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* ==================== DARK THEME (TELEGRAM NIGHT) ==================== */
+[data-theme="dark"] {
+  --accent-color: #8774e1;
+  --accent-hover: #7662d6;
+  --accent-soft: rgba(135, 116, 225, 0.18);
+
+  --bg-primary: #212121;
+  --bg-secondary: #181818;
+  --bg-hover: #2c2c2c;
+  --bg-active-chat: #766ac8;
+  --bg-chat-canvas: #0f0f0f;
+  --bg-drawer: #212121;
+  --bg-elevated: #2b2b2b;
+  --border-color: #2f2f2f;
+
+  --text-primary: #f5f5f5;
+  --text-secondary: #aaaaaa;
+  --text-muted: #767676;
+  --text-on-accent: #ffffff;
+
+  --badge-bg: #8774e1;
+  --badge-muted-bg: #4d4d4d;
+  --badge-text: #ffffff;
+  --online-dot: #4dcd5e;
+  --bot-badge-bg: rgba(135, 116, 225, 0.22);
+  --bot-badge-text: #b7a9ff;
+  --danger-color: #ff595a;
+
+  --story-ring-seen: #4a4a4a;
+
+  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.6);
+}
+
+/* Base Reset */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  font-family: var(--font-family);
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+button {
+  font-family: inherit;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+input {
+  font-family: inherit;
+  border: none;
+  outline: none;
+  background: none;
+  color: inherit;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Custom Thin Scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.3);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.5);
+}

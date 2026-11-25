@@ -1,0 +1,111 @@
+/* =========================================================
+   TELECLONE LIVE LOGIN SCREEN & GLOBAL DIRECTORY STYLES
+   ========================================================= */
+
+.auth-screen {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at top, #27224d 0%, #121218 65%);
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 390px;
+  padding: 28px 24px;
+  border-radius: 20px;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.auth-logo {
+  width: 68px;
+  height: 68px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-color), #3390ec);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  box-shadow: 0 8px 24px rgba(135, 116, 225, 0.35);
+}
+
+.auth-heading {
+  text-align: center;
+  font-size: 21px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.auth-sub {
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  margin-top: -6px;
+}
+
+.auth-step {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-register-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.auth-demo-otp {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background-color: var(--accent-soft);
+  border: 1px solid var(--accent-color);
+  color: var(--text-primary);
+  font-size: 13px;
+  text-align: center;
+}
+
+.auth-error {
+  min-height: 18px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--danger-color);
+}
+
+/* Global Directory Results inside Search Sidebar */
+.global-search-header {
+  padding: 10px 12px 6px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent-color);
+  border-top: 1px solid var(--border-color);
+  margin-top: 8px;
+}
+
+.global-result-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.global-result-item:hover {
+  background-color: var(--bg-hover);
+}
