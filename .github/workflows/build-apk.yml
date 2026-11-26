@@ -148,35 +148,80 @@ jobs:
           }
           EOF
 
-      - name: Apply Custom App Icon (if icon-512.png exists)
+     - name: Apply Custom App Logo & Splash Screen
         run: |
-          if [ -f "icon-512.png" ]; then
-            python3 -m pip install --quiet pillow
+          if [ -f "logo.png" ]; then
+            python3 -c "import PIL" 2>/dev/null || python3 -m pip install --break-system-packages --quiet pillow || (sudo apt-get update -qq && sudo apt-get install -y -qq python3-pil)
             python3 - <<'EOF'
-          import shutil
-          from pathlib import Path
-          from PIL import Image
+            from pathlib import Path
+            from PIL import Image, ImageDraw
 
-          res_dir = Path("mobile-app/android/app/src/main/res")
-          anydpi = res_dir / "mipmap-anydpi-v26"
-          if anydpi.exists():
-              shutil.rmtree(anydpi)
+            res_dir = Path("mobile-app/android/app/src/main/res")
+            src = Image.open("logo.png").convert("RGBA")
 
-          img = Image.open("icon-512.png").convert("RGBA")
-          sizes = {
-              "mipmap-mdpi": 48,
-              "mipmap-hdpi": 72,
-              "mipmap-xhdpi": 96,
-              "mipmap-xxhdpi": 144,
-              "mipmap-xxxhdpi": 192,
-          }
-          for folder, sz in sizes.items():
-              d = res_dir / folder
-              d.mkdir(parents=True, exist_ok=True)
-              resized = img.resize((sz, sz), Image.Resampling.LANCZOS)
-              resized.save(d / "ic_launcher.png")
-              resized.save(d / "ic_launcher_round.png")
-          EOF
+            # Square center-crop taake icon kabhi stretch na ho
+            side = min(src.width, src.height)
+            left = (src.width - side) // 2
+            top = (src.height - side) // 2
+            src = src.crop((left, top, left + side, top + side))
+
+            # Background color detect karein (transparent PNG ho to dark theme #16171f)
+            r, g, b, a = src.getpixel((4, 4))
+            bg_rgb = (r, g, b) if a > 200 else (22, 23, 31)
+            bg_hex = f"#{bg_rgb[0]:02x}{bg_rgb[1]:02x}{bg_rgb[2]:02x}"
+
+            def make_circle(img, size):
+                sq = img.resize((size, size), Image.LANCZOS)
+                mask = Image.new("L", (size, size), 0)
+                ImageDraw.Draw(mask).ellipse((0, 0, size - 1, size - 1), fill=255)
+                out = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+                out.paste(sq, (0, 0), mask)
+                return out
+
+            def make_adaptive_fg(img, size):
+                # Android safe-zone padding taake circle/squircle launchers icon ko na kaatein
+                canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+                inner = int(size * 0.68)
+                resized = img.resize((inner, inner), Image.LANCZOS)
+                offset = (size - inner) // 2
+                canvas.paste(resized, (offset, offset), resized)
+                return canvas
+
+            mipmap_sizes = {
+                "mipmap-mdpi": (48, 108),
+                "mipmap-hdpi": (72, 162),
+                "mipmap-xhdpi": (96, 216),
+                "mipmap-xxhdpi": (144, 324),
+                "mipmap-xxxhdpi": (192, 432),
+            }
+
+            for folder, (icon_sz, fg_sz) in mipmap_sizes.items():
+                d = res_dir / folder
+                d.mkdir(parents=True, exist_ok=True)
+                src.resize((icon_sz, icon_sz), Image.LANCZOS).save(d / "ic_launcher.png")
+                make_circle(src, icon_sz).save(d / "ic_launcher_round.png")
+                make_adaptive_fg(src, fg_sz).save(d / "ic_launcher_foreground.png")
+
+            # Adaptive icon background color update karein (ugly white border khatam)
+            bg_xml = res_dir / "values" / "ic_launcher_background.xml"
+            bg_xml.parent.mkdir(parents=True, exist_ok=True)
+            bg_xml.write_text(
+                f'<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">{bg_hex}</color>\n</resources>\n',
+                encoding="utf-8",
+            )
+
+            # Splash screens par dark background ke beech centered logo lagayein
+            for sp in res_dir.rglob("splash.png"):
+                with Image.open(sp) as old_sp:
+                    w, h = old_sp.size
+                canvas = Image.new("RGBA", (w, h), (*bg_rgb, 255))
+                logo_sz = int(min(w, h) * 0.34)
+                centered = src.resize((logo_sz, logo_sz), Image.LANCZOS)
+                canvas.paste(centered, ((w - logo_sz) // 2, (h - logo_sz) // 2), centered)
+                canvas.convert("RGB").save(sp)
+
+            print("Custom Android icons & splash screens generated successfully.")
+            EOF
           fi
 
       - name: Build Universal Release APK

@@ -114,7 +114,9 @@ async def serve_service_worker():
             "Service-Worker-Allowed": "/",
         },
     )
-
+@app.get("/logo.png")
+async def serve_logo():
+    return FileResponse(ROOT_DIR / "logo.png", media_type="image/png")
 
 @app.get("/")
 def serve_frontend():
