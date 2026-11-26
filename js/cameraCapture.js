@@ -156,62 +156,49 @@
       img.src = url;
     });
   }
-
- // ===== 3. "+" Attach Menu mein "Camera" Button Inject Karein =====
-  const ATTACH_KEYWORDS_RE = /(photo|image|gallery|video|file|document|location|poll|contact|self-destruct|timer)/i;
-
-  function findAttachMenu() {
-    const direct = document.querySelector(
-      "#attachMenu, #attachPopover, #attachPopup, #attachDropdown, #attachmentMenu, .attach-menu, .attach-popover, .attach-popup, .attach-dropdown, .attachment-menu"
-    );
-    if (direct) return direct;
-
-    // Emojis wale buttons ya divs (jaise "📍 Location", "🖼️ Photo", "📄 File") se exact menu dhoondein
-    const containers = document.querySelectorAll("div, ul, menu, section");
-    for (const box of containers) {
-      if (box.closest(".bottom-nav, nav, .settings-view, .settings-panel, #tcCameraModal, #tcProfileBackdrop")) {
-        continue;
-      }
-      const kids = Array.from(box.children);
-      if (kids.length < 2 || kids.length > 9) continue;
-
-      let matched = 0;
-      for (const kid of kids) {
-        const txt = (kid.textContent || "").replace(/\s+/g, " ").trim();
-        if (txt.length > 0 && txt.length <= 38 && ATTACH_KEYWORDS_RE.test(txt)) {
-          matched++;
-        }
-      }
-      if (matched >= 2) return box;
-    }
-    return null;
-  }
-
+// ===== 3. "+" Menu (#plus-attach-menu) aur #attach-menu mein Camera Button Inject Karein =====
   function injectCameraOption() {
-    const menu = findAttachMenu();
-    if (!menu || menu.querySelector("#tcAttachCameraBtn")) return;
+    // 1. Asli "+" button ka menu (js/uiFixes.js wala #plus-attach-menu)
+    const plusMenu = document.getElementById("plus-attach-menu");
+    if (plusMenu && !document.getElementById("tcPlusCameraBtn")) {
+      const btn = document.createElement("button");
+      btn.id = "tcPlusCameraBtn";
+      btn.type = "button";
+      btn.className = "plus-menu-item tc-attach-camera-item";
+      btn.innerHTML = `<span class="tc-cam-menu-ico">${ICONS.camera}</span><span>Camera</span>`;
 
-    const sampleItem = Array.from(menu.children).find(
-      (el) => el.tagName === "BUTTON" || el.tagName === "DIV" || el.tagName === "LI"
-    );
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        plusMenu.classList.add("hidden");
+        const plusBtn = document.getElementById("plus-attach-btn");
+        if (plusBtn) plusBtn.classList.remove("open");
+        openCameraFlow();
+      });
 
-    const btn = document.createElement("button");
-    btn.id = "tcAttachCameraBtn";
-    btn.type = "button";
-    btn.className = sampleItem && sampleItem.className
-      ? `${sampleItem.className} tc-attach-camera-item`
-      : "tc-attach-camera-item";
-    btn.innerHTML = `<span class="tc-cam-menu-ico">${ICONS.camera}</span><span>Camera</span>`;
+      plusMenu.insertBefore(btn, plusMenu.firstChild);
+    }
 
-    btn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      // App ke apne outside-click handler se attach menu cleanly band karein
-      document.body.click();
-      openCameraFlow();
-    });
+    // 2. Backup: purana #attach-menu (agar kahin use ho)
+    const attachMenu = document.getElementById("attach-menu");
+    if (attachMenu && !document.getElementById("tcAttachCameraBtn")) {
+      const btn2 = document.createElement("button");
+      btn2.id = "tcAttachCameraBtn";
+      btn2.type = "button";
+      btn2.className = "attach-item tc-attach-camera-item";
+      btn2.innerHTML = `<span class="tc-cam-menu-ico">${ICONS.camera}</span><span>Camera</span>`;
 
-    menu.insertBefore(btn, menu.firstChild);
+      btn2.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        attachMenu.classList.add("hidden");
+        openCameraFlow();
+      });
+
+      attachMenu.insertBefore(btn2, attachMenu.firstChild);
+    }
   }
 
   // ===== 4. Fullscreen Live Camera Modal + Preview + Send =====
@@ -505,27 +492,25 @@
       showToast(`Photo send error: ${err.message}`);
     }
   }
-
-  // ===== Init =====
+// ===== Init =====
   function initCameraPlugin() {
     injectCameraOption();
     const obs = new MutationObserver(injectCameraOption);
-    obs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style"] });
+    obs.observe(document.body, { childList: true, subtree: true });
 
-    // "+" button click hote hi dynamic menu mein bhi inject karein
     document.addEventListener(
       "click",
       (e) => {
-        if (e.target.closest('#attachBtn, .attach-btn, [id*="attach" i], [title*="attach" i]')) {
-          setTimeout(injectCameraOption, 30);
-          setTimeout(injectCameraOption, 150);
+        if (e.target.closest("#plus-attach-btn, #attach-btn")) {
+          setTimeout(injectCameraOption, 20);
+          setTimeout(injectCameraOption, 120);
         }
       },
       true
     );
   }
 
-    if (document.readyState === "loading") {
+  if (document.readyState === "loading") {
     window.addEventListener("DOMContentLoaded", initCameraPlugin);
   } else {
     initCameraPlugin();
