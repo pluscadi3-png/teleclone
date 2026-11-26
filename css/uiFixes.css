@@ -1905,3 +1905,322 @@ body.tc-stories-open #archived-banner-row {
   width: 18px;
   height: 18px;
 }
+
+/* ===== 1. Clickable "Forwarded from Name" Header ===== */
+.msg-forward-header {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 12.5px;
+  line-height: 1.3;
+  margin-bottom: 5px;
+  padding: 2px 6px 2px 0;
+  cursor: pointer;
+  color: #a5b4fc;
+  user-select: none;
+}
+
+.msg-row.outgoing .msg-forward-header {
+  color: #e0e7ff;
+}
+
+.msg-fwd-label {
+  opacity: 0.85;
+  font-weight: 500;
+}
+
+.msg-fwd-author {
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.msg-forward-header:active {
+  opacity: 0.65;
+}
+
+/* ===== 2. Multi-Select Mode & Floating Action Bar ===== */
+body.tc-select-mode #messages-container .msg-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+body.tc-select-mode #messages-container .msg-row.tc-msg-selected {
+  background: rgba(124, 106, 247, 0.22);
+}
+
+.tc-msg-chk {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  flex-shrink: 0;
+  order: -1;
+}
+
+.msg-row.tc-msg-selected .tc-msg-chk {
+  background: #7c6af7;
+  border-color: #7c6af7;
+}
+
+.tc-msg-chk svg {
+  width: 13px;
+  height: 13px;
+}
+
+.tc-select-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10120;
+  height: 62px;
+  padding: 0 12px;
+  background: #171822;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #ffffff;
+}
+
+.tc-select-bar.hidden {
+  display: none !important;
+}
+
+.tc-sb-count {
+  flex: 1;
+  font-size: 14.5px;
+  font-weight: 700;
+}
+
+.tc-sb-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tc-sb-btn {
+  border: none;
+  border-radius: 12px;
+  padding: 9px 13px;
+  font-size: 13.5px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  color: #ffffff;
+}
+
+.tc-sb-btn svg {
+  width: 17px;
+  height: 17px;
+}
+
+.tc-sb-cancel {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 50%;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tc-sb-del {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
+}
+
+.tc-sb-fwd {
+  background: #7c6af7;
+  color: #ffffff;
+}
+
+.tc-sb-btn:disabled {
+  opacity: 0.45;
+}
+
+/* ===== 3. Forwarded Sender Profile Sheet ===== */
+.tc-fp-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10180;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.tc-fp-sheet {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  background: #16171f;
+  color: #f8fafc;
+  border-radius: 22px 22px 0 0;
+  padding: 20px 18px 26px;
+  box-shadow: 0 -10px 36px rgba(0, 0, 0, 0.55);
+}
+
+.tc-fp-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.09);
+  color: #e2e8f0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.tc-fp-close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.tc-fp-loading {
+  text-align: center;
+  padding: 36px 12px;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.tc-fp-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+.tc-fp-avatar {
+  width: 82px;
+  height: 82px;
+  border-radius: 50%;
+  overflow: hidden;
+  margin-bottom: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+.tc-fp-av-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  cursor: pointer;
+}
+
+.tc-fp-av-fallback {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #6366f1, #3b82f6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.tc-fp-name {
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.tc-fp-status {
+  font-size: 12.5px;
+  color: #94a3b8;
+  margin-top: 3px;
+}
+
+.tc-fp-info-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.tc-fp-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.tc-fp-row:last-child {
+  border-bottom: none;
+}
+
+#tcFpCopyUser {
+  cursor: pointer;
+}
+
+.tc-fp-val {
+  font-size: 14.5px;
+  font-weight: 500;
+  color: #f1f5f9;
+}
+
+.tc-fp-lbl {
+  font-size: 11.5px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.tc-fp-copy-ico {
+  color: #a5b4fc;
+  display: inline-flex;
+}
+
+.tc-fp-copy-ico svg {
+  width: 17px;
+  height: 17px;
+}
+
+.tc-fp-msg-btn {
+  width: 100%;
+  border: none;
+  border-radius: 14px;
+  padding: 13px 16px;
+  background: #7c6af7;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.tc-fp-msg-btn:disabled {
+  background: rgba(255, 255, 255, 0.1);
+  color: #64748b;
+}
+
+.tc-fp-msg-btn svg {
+  width: 18px;
+  height: 18px;
+}

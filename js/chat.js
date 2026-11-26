@@ -407,16 +407,25 @@
         `
         : "";
 
+     const fwdInfo = window.TCChatEnhancements
+        ? window.TCChatEnhancements.parseForwarded(msg.text)
+        : null;
+      const forwardHtml = fwdInfo
+        ? window.TCChatEnhancements.renderForwardHeader(fwdInfo)
+        : "";
+      const displayText = fwdInfo ? fwdInfo.body : (msg.text || "");
+
       const ticks = isMe ? (msg.status === "read" ? "✓✓" : "✓") : "";
 
       htmlParts.push(`
         <div class="msg-row ${isMe ? "outgoing" : "incoming"} ${isMatch ? "highlight" : ""}" data-msg-id="${msg.id}">
           <div class="msg-bubble" data-msg-id="${msg.id}">
             ${!isMe && msg.senderName ? `<div class="msg-sender-name">${escapeHtml(msg.senderName)}</div>` : ""}
+            ${forwardHtml}
             ${replyHtml}
             ${renderAttachmentHtml(msg.attachment)}
             ${renderPollHtml(msg)}
-            ${msg.text ? `<div class="msg-text">${formatMessageText(msg.text)}</div>` : ""}
+            ${displayText ? `<div class="msg-text">${formatMessageText(displayText)}</div>` : ""}
             ${renderReactionsHtml(msg)}
             <div class="msg-meta">
               ${msg.silent ? '<span title="Sent silently">🔕</span>' : ""}
@@ -822,13 +831,19 @@
         renderPinnedBar(chat);
         toast("Message pinned 📌");
       } else if (act === "copy") {
-        navigator.clipboard?.writeText(msg.text || "").catch(() => {});
+        const parsed = window.TCChatEnhancements
+          ? window.TCChatEnhancements.parseForwarded(msg.text)
+          : null;
+        const cleanCopy = parsed ? parsed.body : (msg.text || "");
+        navigator.clipboard?.writeText(cleanCopy).catch(() => {});
         toast("Text copied!");
       } else if (act === "forward") {
         if (window.TCChatEnhancements) {
-          window.TCChatEnhancements.openForwardModal(msg, chat);
-          if (window.App) window.App.renderAll();
-          toast("Forwarded to Saved Messages 🔖");
+          window.TCChatEnhancements.openForwardModal([msg], chat);
+        }
+      } else if (act === "select") {
+        if (window.TCChatEnhancements) {
+          window.TCChatEnhancements.enterSelectMode(msg.id);
         }
       } else if (act === "delete") {
         Store.deleteMessage(chat.id, msg.id);
