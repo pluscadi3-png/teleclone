@@ -2224,3 +2224,946 @@ body.tc-select-mode #messages-container .msg-row.tc-msg-selected {
   width: 18px;
   height: 18px;
 }
+
+/* =========================================================
+   TELEGRAM-STYLE REALISTIC SETTINGS + 3-ACCOUNT SWITCHER
+   ========================================================= */
+
+/* Settings open hone par upar ka chat search bar aur FAB hide ho jaye (exact screenshot jaisa) */
+body.tc-pro-settings-open .sidebar-header,
+body.tc-pro-settings-open #sidebar-header,
+body.tc-pro-settings-open .search-bar-wrap,
+body.tc-pro-settings-open #stories-bar,
+body.tc-pro-settings-open #folders-bar,
+body.tc-pro-settings-open #folder-tabs,
+body.tc-pro-settings-open #fab-btn,
+body.tc-pro-settings-open .fab-btn {
+  display: none !important;
+}
+
+#sidebar-tab-panel.tc-pro-settings-panel {
+  background: #000000 !important;
+  padding: 0 !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tc-st-root {
+  min-height: 100%;
+  background: #000000;
+  color: #ffffff;
+  padding: 12px 14px 92px;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+/* Top Floating QR + Search/3-Dots Pill */
+.tc-st-topbar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.tc-st-float-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #17181d;
+  color: #f8fafc;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.tc-st-float-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.tc-st-float-pill {
+  height: 44px;
+  padding: 0 6px;
+  border-radius: 99px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #17181d;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.tc-st-pill-ico {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: #f8fafc;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.tc-st-pill-ico svg {
+  width: 20px;
+  height: 20px;
+}
+
+.tc-st-more-menu {
+  position: absolute;
+  top: 50px;
+  right: 0;
+  z-index: 60;
+  min-width: 195px;
+  background: #1c1d24;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 6px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tc-st-more-menu.hidden {
+  display: none !important;
+}
+
+.tc-st-more-menu button {
+  border: none;
+  background: transparent;
+  color: #f1f5f9;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 11px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.tc-st-more-menu button:active {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tc-st-more-menu button.danger {
+  color: #f87171;
+}
+
+/* Search Bar */
+.tc-st-searchbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #16171d;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 4px 10px;
+  margin: 10px 0 14px;
+}
+
+.tc-st-searchbar svg {
+  width: 18px;
+  height: 18px;
+  color: #8e94a5;
+}
+
+.tc-st-searchbar input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 14.5px;
+  padding: 8px 0;
+  outline: none;
+}
+
+.tc-st-searchbar button {
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  display: inline-flex;
+}
+
+/* Centered Profile Hero */
+.tc-st-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 4px 0 18px;
+}
+
+.tc-st-avatar-wrap {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  margin-bottom: 12px;
+}
+
+.tc-st-avatar {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+}
+
+.tc-st-av-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.tc-st-av-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.tc-st-cam-badge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid #000000;
+  background: #67b346;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.tc-st-cam-badge svg {
+  width: 16px;
+  height: 16px;
+}
+
+.tc-st-name {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  color: #ffffff;
+}
+
+.tc-st-handle {
+  font-size: 13.5px;
+  color: #8e94a5;
+  margin-top: 4px;
+}
+
+/* Rounded Dark Cards */
+.tc-st-card {
+  background: #14151a;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.tc-st-card-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 16px 6px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #7bc65b;
+}
+
+.tc-st-acc-quota {
+  font-size: 11.5px;
+  color: #8e94a5;
+  font-weight: 600;
+}
+
+/* Accounts Switcher Card */
+.tc-st-acc-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.tc-st-acc-row:active {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.tc-st-mini-av {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.tc-st-mini-av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.tc-st-mini-fb {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 15px;
+  color: #ffffff;
+}
+
+.tc-st-acc-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.tc-st-acc-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tc-st-acc-sub {
+  font-size: 12px;
+  color: #8e94a5;
+}
+
+.tc-st-acc-badge {
+  background: #67b346;
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 99px;
+}
+
+.tc-st-chev {
+  color: #64748b;
+  display: inline-flex;
+}
+
+.tc-st-chev svg {
+  width: 17px;
+  height: 17px;
+}
+
+.tc-st-add-acc-row {
+  width: 100%;
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  background: transparent;
+  color: #7bc65b;
+  font-size: 14.5px;
+  font-weight: 600;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.tc-st-add-acc-row:active {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tc-st-add-ico {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(123, 198, 91, 0.16);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tc-st-add-ico svg {
+  width: 17px;
+  height: 17px;
+}
+
+.tc-st-acc-limit {
+  padding: 8px 16px 12px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* Main Settings Menu Rows */
+.tc-st-row {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  text-align: left;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.tc-st-row:last-child {
+  border-bottom: none;
+}
+
+.tc-st-row:active {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.tc-st-row-ico {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  border-radius: 50%;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tc-st-row-ico svg {
+  width: 20px;
+  height: 20px;
+}
+
+.tc-st-row-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tc-st-row-title {
+  font-size: 15.5px;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.tc-st-row-sub {
+  font-size: 12.5px;
+  color: #8e94a5;
+  margin-top: 2px;
+}
+
+.tc-st-empty {
+  text-align: center;
+  color: #8e94a5;
+  padding: 28px 12px;
+  font-size: 14px;
+}
+
+/* Sub-Page Header & Form Cards */
+.tc-st-subhead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.tc-st-subhead h2 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.tc-st-form-card {
+  padding: 14px 16px 16px;
+}
+
+.tc-st-form-card .tc-st-card-label {
+  padding: 0 0 10px;
+}
+
+.tc-st-lbl {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #8e94a5;
+  margin: 10px 0 5px;
+}
+
+.tc-st-lbl:first-child {
+  margin-top: 0;
+}
+
+.tc-st-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #1d1f27;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  color: #ffffff;
+  font-size: 14.5px;
+  padding: 11px 13px;
+  outline: none;
+  margin-bottom: 8px;
+}
+
+.tc-st-input:focus {
+  border-color: #7bc65b;
+}
+
+.tc-st-textarea {
+  min-height: 74px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.tc-st-readonly {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  padding: 11px 13px;
+  font-size: 14px;
+  color: #cbd5e1;
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+
+.tc-st-readonly span {
+  font-size: 11.5px;
+  color: #7bc65b;
+}
+
+.tc-st-primary-btn {
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 16px;
+  background: #67b346;
+  color: #ffffff;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tc-st-secondary-btn {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 11px 14px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #f8fafc;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tc-st-danger-sm {
+  border: none;
+  border-radius: 10px;
+  padding: 8px 13px;
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tc-st-manage-acc {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.tc-st-manage-acc:last-child {
+  border-bottom: none;
+}
+
+.tc-st-active-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: rgba(103, 179, 70, 0.2);
+  color: #7bc65b;
+  margin-left: 6px;
+}
+
+/* Themes & Wallpapers */
+.tc-st-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.tc-st-theme-btn {
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  background: #1b1d25;
+  color: #e2e8f0;
+  border-radius: 14px;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tc-st-theme-btn.active {
+  border-color: #7bc65b;
+  background: rgba(123, 198, 91, 0.12);
+}
+
+.tc-st-theme-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid #7bc65b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tc-st-theme-swatch i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: block;
+}
+
+.tc-st-wp-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.tc-st-wp-tile {
+  height: 68px;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.09);
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 600;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 6px;
+  cursor: pointer;
+}
+
+.tc-st-wp-tile.active {
+  border-color: #7bc65b;
+  box-shadow: 0 0 0 2px rgba(123, 198, 91, 0.35);
+}
+
+.tc-st-slider {
+  width: 100%;
+  accent-color: #67b346;
+  margin: 6px 0 12px;
+}
+
+.tc-st-preview-bubble {
+  background: #233046;
+  color: #f8fafc;
+  padding: 10px 13px;
+  border-radius: 14px 14px 14px 4px;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+/* Toggles & Selects */
+.tc-st-toggle-row,
+.tc-st-select-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 14.5px;
+  color: #f1f5f9;
+}
+
+.tc-st-toggle-row:last-child,
+.tc-st-select-row:last-child {
+  border-bottom: none;
+}
+
+.tc-st-toggle-row input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: #67b346;
+  cursor: pointer;
+}
+
+.tc-st-select {
+  background: #1d1f27;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-size: 13px;
+  outline: none;
+}
+
+/* Storage Stats */
+.tc-st-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.tc-st-stat-box {
+  background: #1b1d25;
+  border-radius: 14px;
+  padding: 14px 10px;
+  text-align: center;
+}
+
+.tc-st-stat-num {
+  font-size: 20px;
+  font-weight: 700;
+  color: #7bc65b;
+}
+
+.tc-st-stat-lbl {
+  font-size: 12px;
+  color: #8e94a5;
+  margin-top: 4px;
+}
+
+/* Modals (Add Account & QR) */
+.tc-st-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10250;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.tc-st-modal-card {
+  width: 100%;
+  max-width: 370px;
+  background: #15161c;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  padding: 18px;
+  color: #ffffff;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.65);
+}
+
+.tc-st-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.tc-st-modal-head h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.tc-st-circle-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.tc-st-circle-btn svg {
+  width: 17px;
+  height: 17px;
+}
+
+.tc-st-modal-desc {
+  font-size: 13px;
+  color: #94a3b8;
+  margin: 0 0 12px;
+  line-height: 1.45;
+}
+
+.tc-st-otp-hint {
+  background: rgba(103, 179, 70, 0.14);
+  border: 1px solid rgba(103, 179, 70, 0.35);
+  color: #a3e635;
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 13.5px;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.tc-st-modal-err {
+  color: #f87171;
+  font-size: 12.5px;
+  min-height: 18px;
+  margin-bottom: 8px;
+}
+
+.tc-qr-frame {
+  display: inline-flex;
+  padding: 12px;
+  border-radius: 18px;
+  background: #0d0e13;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: 6px;
+}
+
+/* 4-Digit Passcode Lock Screen */
+.tc-lock-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10500;
+  background: #090a0f;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.tc-lock-box {
+  width: 100%;
+  max-width: 300px;
+  text-align: center;
+}
+
+.tc-lock-ico {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: rgba(103, 179, 70, 0.18);
+  color: #7bc65b;
+  margin: 0 auto 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tc-lock-ico svg {
+  width: 28px;
+  height: 28px;
+}
+
+.tc-lock-title {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.tc-lock-sub {
+  font-size: 13px;
+  color: #8e94a5;
+  margin-top: 4px;
+}
+
+.tc-lock-dots {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin: 22px 0 26px;
+}
+
+.tc-lock-dots span {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.tc-lock-dots span.filled {
+  background: #7bc65b;
+  border-color: #7bc65b;
+}
+
+.tc-lock-dots.shake {
+  animation: tcLockShake 0.36s ease;
+}
+
+@keyframes tcLockShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-8px); }
+  75% { transform: translateX(8px); }
+}
+
+.tc-lock-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.tc-lock-key {
+  height: 62px;
+  border-radius: 50%;
+  border: none;
+  background: #171922;
+  color: #ffffff;
+  font-size: 22px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tc-lock-key:active {
+  background: #2a2d3c;
+}
+
+/* Live Applied Preferences */
+.msg-text {
+  font-size: var(--tc-msg-font-size, 15px) !important;
+}
+
+body.tc-has-wallpaper #messages-container,
+body.tc-has-wallpaper .messages-container {
+  background: var(--tc-chat-wallpaper) !important;
+}
+
+body.tc-theme-oled {
+  --bg-primary: #000000;
+  --bg-secondary: #0f1015;
+}
+
+body.tc-theme-blue {
+  --bg-primary: #0e1621;
+  --bg-secondary: #17212b;
+  --accent-color: #3ea6ff;
+}
+
+body.tc-power-save *,
+body.tc-power-save *::before,
+body.tc-power-save *::after {
+  animation-duration: 0.01ms !important;
+  transition-duration: 0.01ms !important;
+}
+
+body.tc-hide-badges .badge,
+body.tc-hide-badges .bottom-nav-badge {
+  display: none !important;
+}
