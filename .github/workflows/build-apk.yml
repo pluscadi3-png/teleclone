@@ -30,7 +30,7 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: Add Android Permissions (Phone Number, Contacts, Media, Mic, Notifications)
+      - name: Add Android Permissions (Phone Number, Contacts, Media, Mic, Camera, Notifications)
         run: |
           python3 - <<'EOF'
           from pathlib import Path
@@ -55,7 +55,7 @@ jobs:
           p.write_text(txt, encoding="utf-8")
           EOF
 
-      - name: Prompt Runtime Permissions & Enable WebView Mic Capture
+      - name: Prompt Runtime Permissions & Enable WebView Mic/Camera Capture
         run: |
           cat <<'EOF' > mobile-app/android/app/src/main/java/com/teleclone/app/MainActivity.java
           package com.teleclone.app;
@@ -79,29 +79,26 @@ jobs:
               public void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
                   requestAppPermissions();
-                  enableWebViewMicPermission();
+                  enableWebViewMediaPermissions();
               }
 
-              private void enableWebViewMicPermission() {
+              private void enableWebViewMediaPermissions() {
                   if (this.bridge == null || this.bridge.getWebView() == null) return;
                   this.bridge.getWebView().setWebChromeClient(new BridgeWebChromeClient(this.bridge) {
                       @Override
                       public void onPermissionRequest(final PermissionRequest request) {
-                          boolean hasAudio = ContextCompat.checkSelfPermission(
-                              MainActivity.this,
-                              Manifest.permission.RECORD_AUDIO
-                          ) == PackageManager.PERMISSION_GRANTED;
-
-                          boolean wantsAudioOnly = true;
+                          List<String> granted = new ArrayList<>();
                           for (String res : request.getResources()) {
-                              if (!PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(res)) {
-                                  wantsAudioOnly = false;
-                                  break;
+                              if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(res) &&
+                                  ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                                  granted.add(res);
+                              } else if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(res) &&
+                                  ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                                  granted.add(res);
                               }
                           }
-
-                          if (hasAudio && wantsAudioOnly) {
-                              runOnUiThread(() -> request.grant(request.getResources()));
+                          if (!granted.isEmpty()) {
+                              runOnUiThread(() -> request.grant(granted.toArray(new String[0])));
                           } else {
                               super.onPermissionRequest(request);
                           }
@@ -148,81 +145,98 @@ jobs:
           }
           EOF
 
-     - name: Apply Custom App Logo & Splash Screen
+      - name: Apply Custom App Logo & Splash Screen
         run: |
-          if [ -f "logo.png" ]; then
-            python3 -c "import PIL" 2>/dev/null || python3 -m pip install --break-system-packages --quiet pillow || (sudo apt-get update -qq && sudo apt-get install -y -qq python3-pil)
-            python3 - <<'EOF'
-            from pathlib import Path
-            from PIL import Image, ImageDraw
-
-            res_dir = Path("mobile-app/android/app/src/main/res")
-            src = Image.open("logo.png").convert("RGBA")
-
-            # Square center-crop taake icon kabhi stretch na ho
-            side = min(src.width, src.height)
-            left = (src.width - side) // 2
-            top = (src.height - side) // 2
-            src = src.crop((left, top, left + side, top + side))
-
-            # Background color detect karein (transparent PNG ho to dark theme #16171f)
-            r, g, b, a = src.getpixel((4, 4))
-            bg_rgb = (r, g, b) if a > 200 else (22, 23, 31)
-            bg_hex = f"#{bg_rgb[0]:02x}{bg_rgb[1]:02x}{bg_rgb[2]:02x}"
-
-            def make_circle(img, size):
-                sq = img.resize((size, size), Image.LANCZOS)
-                mask = Image.new("L", (size, size), 0)
-                ImageDraw.Draw(mask).ellipse((0, 0, size - 1, size - 1), fill=255)
-                out = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-                out.paste(sq, (0, 0), mask)
-                return out
-
-            def make_adaptive_fg(img, size):
-                # Android safe-zone padding taake circle/squircle launchers icon ko na kaatein
-                canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-                inner = int(size * 0.68)
-                resized = img.resize((inner, inner), Image.LANCZOS)
-                offset = (size - inner) // 2
-                canvas.paste(resized, (offset, offset), resized)
-                return canvas
-
-            mipmap_sizes = {
-                "mipmap-mdpi": (48, 108),
-                "mipmap-hdpi": (72, 162),
-                "mipmap-xhdpi": (96, 216),
-                "mipmap-xxhdpi": (144, 324),
-                "mipmap-xxxhdpi": (192, 432),
-            }
-
-            for folder, (icon_sz, fg_sz) in mipmap_sizes.items():
-                d = res_dir / folder
-                d.mkdir(parents=True, exist_ok=True)
-                src.resize((icon_sz, icon_sz), Image.LANCZOS).save(d / "ic_launcher.png")
-                make_circle(src, icon_sz).save(d / "ic_launcher_round.png")
-                make_adaptive_fg(src, fg_sz).save(d / "ic_launcher_foreground.png")
-
-            # Adaptive icon background color update karein (ugly white border khatam)
-            bg_xml = res_dir / "values" / "ic_launcher_background.xml"
-            bg_xml.parent.mkdir(parents=True, exist_ok=True)
-            bg_xml.write_text(
-                f'<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">{bg_hex}</color>\n</resources>\n',
-                encoding="utf-8",
-            )
-
-            # Splash screens par dark background ke beech centered logo lagayein
-            for sp in res_dir.rglob("splash.png"):
-                with Image.open(sp) as old_sp:
-                    w, h = old_sp.size
-                canvas = Image.new("RGBA", (w, h), (*bg_rgb, 255))
-                logo_sz = int(min(w, h) * 0.34)
-                centered = src.resize((logo_sz, logo_sz), Image.LANCZOS)
-                canvas.paste(centered, ((w - logo_sz) // 2, (h - logo_sz) // 2), centered)
-                canvas.convert("RGB").save(sp)
-
-            print("Custom Android icons & splash screens generated successfully.")
-            EOF
+          if [ ! -f "logo.png" ]; then
+            echo "logo.png not found, skipping custom icon."
+            exit 0
           fi
+          python3 -c "import PIL" 2>/dev/null || python3 -m pip install --break-system-packages --quiet pillow || (sudo apt-get update -qq && sudo apt-get install -y -qq python3-pil)
+          python3 - <<'EOF'
+          from pathlib import Path
+          from PIL import Image, ImageDraw
+
+          res_dir = Path("mobile-app/android/app/src/main/res")
+          src = Image.open("logo.png").convert("RGBA")
+
+          # Square center-crop
+          side = min(src.width, src.height)
+          left = (src.width - side) // 2
+          top = (src.height - side) // 2
+          src = src.crop((left, top, left + side, top + side))
+
+          # Logo ke outer white corners (agar hon) clean rounded mask se transparent karein
+          c_r, c_g, c_b, c_a = src.getpixel((4, 4))
+          if c_a > 200 and c_r > 235 and c_g > 235 and c_b > 235:
+              rmask = Image.new("L", (side, side), 0)
+              ImageDraw.Draw(rmask).rounded_rectangle(
+                  (0, 0, side - 1, side - 1), radius=int(side * 0.22), fill=255
+              )
+              cleaned = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+              cleaned.paste(src, (0, 0), rmask)
+              src = cleaned
+
+          # Icon theme color sample karein (top-center se taake white corner na aaye)
+          tr, tg, tb, ta = src.getpixel((side // 2, max(8, int(side * 0.08))))
+          theme_rgb = (tr, tg, tb) if ta > 200 else (99, 68, 245)
+          theme_hex = f"#{theme_rgb[0]:02x}{theme_rgb[1]:02x}{theme_rgb[2]:02x}"
+
+          def make_filled_square(img, size):
+              bg = Image.new("RGBA", (size, size), (*theme_rgb, 255))
+              fg = img.resize((size, size), Image.LANCZOS)
+              bg.paste(fg, (0, 0), fg)
+              return bg
+
+          def make_circle(img, size):
+              sq = make_filled_square(img, size)
+              mask = Image.new("L", (size, size), 0)
+              ImageDraw.Draw(mask).ellipse((0, 0, size - 1, size - 1), fill=255)
+              out = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+              out.paste(sq, (0, 0), mask)
+              return out
+
+          def make_adaptive_fg(img, size):
+              canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+              inner = int(size * 0.72)
+              resized = img.resize((inner, inner), Image.LANCZOS)
+              offset = (size - inner) // 2
+              canvas.paste(resized, (offset, offset), resized)
+              return canvas
+
+          mipmap_sizes = {
+              "mipmap-mdpi": (48, 108),
+              "mipmap-hdpi": (72, 162),
+              "mipmap-xhdpi": (96, 216),
+              "mipmap-xxhdpi": (144, 324),
+              "mipmap-xxxhdpi": (192, 432),
+          }
+
+          for folder, (icon_sz, fg_sz) in mipmap_sizes.items():
+              d = res_dir / folder
+              d.mkdir(parents=True, exist_ok=True)
+              make_filled_square(src, icon_sz).save(d / "ic_launcher.png")
+              make_circle(src, icon_sz).save(d / "ic_launcher_round.png")
+              make_adaptive_fg(src, fg_sz).save(d / "ic_launcher_foreground.png")
+
+          bg_xml = res_dir / "values" / "ic_launcher_background.xml"
+          bg_xml.parent.mkdir(parents=True, exist_ok=True)
+          bg_xml.write_text(
+              f'<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">{theme_hex}</color>\n</resources>\n',
+              encoding="utf-8",
+          )
+
+          # Dark theme (#16171f) splash screen ke beech centered logo
+          for sp in res_dir.rglob("splash.png"):
+              with Image.open(sp) as old_sp:
+                  w, h = old_sp.size
+              canvas = Image.new("RGBA", (w, h), (22, 23, 31, 255))
+              logo_sz = int(min(w, h) * 0.32)
+              centered = src.resize((logo_sz, logo_sz), Image.LANCZOS)
+              canvas.paste(centered, ((w - logo_sz) // 2, (h - logo_sz) // 2), centered)
+              canvas.convert("RGB").save(sp)
+
+          print("Custom Android icons & splash screens generated successfully.")
+          EOF
 
       - name: Build Universal Release APK
         working-directory: mobile-app/android
@@ -267,9 +281,3 @@ jobs:
           path: |
             TeleClone-Universal.apk
             teleclone-release.keystore
-
-            
-
-
-
-            
