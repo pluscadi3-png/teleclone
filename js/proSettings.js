@@ -1174,32 +1174,56 @@
             ${locked ? `<button type="button" class="tc-st-secondary-btn" id="tcPinLockNowBtn" style="width:100%;margin-top:8px;">🔒 Lock App Now</button>` : ""}
           </div>
 
-          <div class="tc-st-card tc-st-form-card">
+          
+        <div class="tc-st-card tc-st-form-card">
             <div class="tc-st-card-label"><span>Privacy Controls</span></div>
+
+            <div class="tc-st-select-row" style="border-bottom:none;padding-bottom:4px;">
+              <span>Phone Number</span>
+              <select id="tcPrivPhone" class="tc-st-select">
+                <option value="everybody" ${p.phonePrivacy === "everybody" ? "selected" : ""}>Everybody</option>
+                <option value="contacts" ${p.phonePrivacy === "contacts" ? "selected" : ""}>My Contacts</option>
+                <option value="nobody" ${p.phonePrivacy === "nobody" ? "selected" : ""}>Nobody</option>
+              </select>
+            </div>
+            <div id="tcPrivPhoneHint" style="font-size:12px;color:#8e94a5;padding:0 0 12px;border-bottom:1px solid rgba(255,255,255,0.06);">
+              ${
+                p.phonePrivacy === "nobody"
+                  ? "Koi bhi user aapka phone number nahi dekh sakega."
+                  : p.phonePrivacy === "contacts"
+                  ? "Sirf aapke saved contacts aapka phone number dekh sakte hain."
+                  : "Har koi aapka phone number dekh sakta hai."
+              }
+            </div>
+
             <div class="tc-st-select-row">
               <span>Last Seen & Online</span>
-              <div class="tc-st-select-row">
-           <span>Phone Number</span>
-           <select id="tcPrivPhone" class="tc-st-select">
-             <option value="everybody" ${p.phonePrivacy === "everybody" ? "selected" : ""}>Everybody</option>
-             <option value="contacts" ${p.phonePrivacy === "contacts" ? "selected" : ""}>My Contacts</option>
-             <option value="nobody" ${p.phonePrivacy === "nobody" ? "selected" : ""}>Nobody</option>
-           </select>
-         </div>
-         <div id="tcPrivPhoneHint" style="font-size:12px;color:#8e94a5;padding:0 0 10px;border-bottom:1px solid rgba(255,255,255,0.06);">
-           ${
-             p.phonePrivacy === "nobody"
-               ? "Koi bhi user aapka phone number nahi dekh sakega."
-               : p.phonePrivacy === "contacts"
-               ? "Sirf aapke saved contacts aapka phone number dekh sakte hain."
-               : "Har koi aapka phone number dekh sakta hai."
-           }
-         </div>
               <select id="tcPrivLastSeen" class="tc-st-select">
                 <option value="everybody" ${p.lastSeen === "everybody" ? "selected" : ""}>Everybody</option>
                 <option value="contacts" ${p.lastSeen === "contacts" ? "selected" : ""}>My Contacts</option>
                 <option value="nobody" ${p.lastSeen === "nobody" ? "selected" : ""}>Nobody</option>
               </select>
+            </div>
+
+            <div class="tc-st-select-row">
+              <span>Profile Photos</span>
+              <select id="tcPrivPhoto" class="tc-st-select">
+                <option value="everybody" ${p.profilePhotoPrivacy === "everybody" ? "selected" : ""}>Everybody</option>
+                <option value="contacts" ${p.profilePhotoPrivacy === "contacts" ? "selected" : ""}>My Contacts</option>
+                <option value="nobody" ${p.profilePhotoPrivacy === "nobody" ? "selected" : ""}>Nobody</option>
+              </select>
+            </div>
+
+            <div class="tc-st-select-row">
+              <span>Forwarded Messages Link</span>
+              <select id="tcPrivFwd" class="tc-st-select">
+                <option value="everybody" ${p.forwardLinkPrivacy === "everybody" ? "selected" : ""}>Everybody</option>
+                <option value="contacts" ${p.forwardLinkPrivacy === "contacts" ? "selected" : ""}>My Contacts</option>
+                <option value="nobody" ${p.forwardLinkPrivacy === "nobody" ? "selected" : ""}>Nobody</option>
+              </select>
+            </div>
+          </div>
+        
             </div>
             <div class="tc-st-select-row">
               <span>Profile Photos</span>
