@@ -1178,8 +1178,42 @@ html, body {
   to { transform: rotate(360deg); }
 }
 
-/* Banner dikhne par app ka top header neeche khisak jaye taake button na chupe */
+/* Banner dikhne par poori app remaining height mein fit ho — bottom nav kabhi na kate */
+html {
+  height: 100%;
+}
+
 body.tc-offline-active {
   padding-top: 30px !important;
-  box-sizing: border-box;
+  height: 100% !important;
+  max-height: 100dvh !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+body.tc-offline-active > *:not(#tcOfflineBanner):not(#tcQuickToast):not(#tcProfileBackdrop) {
+  max-height: 100% !important;
+  min-height: 0 !important;
+}
+
+body.tc-offline-active .app-container,
+body.tc-offline-active .app-shell,
+body.tc-offline-active .app-layout,
+body.tc-offline-active .main-layout,
+body.tc-offline-active .sidebar,
+body.tc-offline-active .chat-area,
+body.tc-offline-active .chat-panel,
+body.tc-offline-active #app {
+  max-height: 100% !important;
+  min-height: 0 !important;
+}
+
+body.tc-offline-active.tc-in-settings .settings-view,
+body.tc-offline-active.tc-in-settings .settings-page,
+body.tc-offline-active.tc-in-settings .settings-panel,
+body.tc-offline-active.tc-in-settings .settings-container,
+body.tc-offline-active.tc-in-settings #settingsView,
+body.tc-offline-active.tc-in-settings #settingsPanel {
+  height: calc(100% - 64px) !important;
+  max-height: calc(100% - 64px) !important;
 }
