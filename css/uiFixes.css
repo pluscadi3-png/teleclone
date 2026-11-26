@@ -3167,3 +3167,433 @@ body.tc-hide-badges .badge,
 body.tc-hide-badges .bottom-nav-badge {
   display: none !important;
 }
+
+/* =========================================================
+   TELEGRAM-STYLE OLED PROFILE TAB + FLOATING POST BUTTON
+   ========================================================= */
+
+body.tc-pro-profile-open .sidebar-header,
+body.tc-pro-profile-open #sidebar-header,
+body.tc-pro-profile-open .search-bar-wrap,
+body.tc-pro-profile-open #stories-bar,
+body.tc-pro-profile-open #folders-bar,
+body.tc-pro-profile-open #folder-tabs,
+body.tc-pro-profile-open #fab-btn,
+body.tc-pro-profile-open .fab-btn {
+  display: none !important;
+}
+
+#sidebar-tab-panel.tc-pro-profile-panel {
+  background: #000000 !important;
+  padding: 0 !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tc-pf-root {
+  min-height: 100%;
+  background: #000000;
+  color: #ffffff;
+  padding: 12px 14px 150px;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.tc-pf-topbar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.tc-pf-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 4px 0 18px;
+}
+
+.tc-pf-avatar {
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  overflow: hidden;
+  margin-bottom: 12px;
+  cursor: pointer;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.55);
+}
+
+.tc-pf-av-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.tc-pf-av-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 38px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.tc-pf-name {
+  font-size: 22px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.2px;
+}
+
+.tc-pf-status {
+  font-size: 13.5px;
+  color: #8e94a5;
+  margin-top: 3px;
+}
+
+/* 3 Action Cards: Set Photo | Edit Info | Settings */
+.tc-pf-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9px;
+  margin-bottom: 14px;
+}
+
+.tc-pf-act-card {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #17181d;
+  color: #f8fafc;
+  border-radius: 16px;
+  padding: 13px 6px 11px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tc-pf-act-card:active {
+  background: #23252d;
+}
+
+.tc-pf-act-ico {
+  display: inline-flex;
+  color: #ffffff;
+}
+
+.tc-pf-act-ico svg {
+  width: 21px;
+  height: 21px;
+}
+
+/* Rounded Info Card (Mobile, Username, Bio) */
+.tc-pf-info-card {
+  background: #14151a;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+  padding: 6px 18px;
+  margin-bottom: 18px;
+}
+
+.tc-pf-info-row {
+  padding: 11px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+}
+
+.tc-pf-info-row:last-child {
+  border-bottom: none;
+}
+
+.tc-pf-info-val {
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+  word-break: break-word;
+}
+
+.tc-pf-info-lbl {
+  font-size: 13px;
+  color: #8e94a5;
+  margin-top: 2px;
+}
+
+/* Posts / Archived Posts Pill Switch */
+.tc-pf-tabs-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.tc-pf-tabs {
+  display: inline-flex;
+  align-items: center;
+  background: #14151a;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 99px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.tc-pf-tab {
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 8px 18px;
+  border-radius: 99px;
+  cursor: pointer;
+}
+
+.tc-pf-tab.active {
+  background: rgba(103, 179, 70, 0.2);
+  color: #7bc65b;
+}
+
+/* Empty State */
+.tc-pf-empty {
+  text-align: center;
+  padding: 10px 24px 20px;
+}
+
+.tc-pf-empty-title {
+  font-size: 19px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 8px;
+}
+
+.tc-pf-empty-sub {
+  font-size: 13.5px;
+  color: #8e94a5;
+  line-height: 1.45;
+  max-width: 260px;
+  margin: 0 auto;
+}
+
+/* 3-Column Posts Grid */
+.tc-pf-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.tc-pf-tile {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border: none;
+  padding: 0;
+  background: #14151a;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.tc-pf-tile img,
+.tc-pf-tile video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.tc-pf-tile-txt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.3;
+}
+
+.tc-pf-vid-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.65);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tc-pf-vid-badge svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Floating Green "Add a post" Button above Bottom Nav */
+.tc-pf-add-wrap {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 78px;
+  z-index: 45;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.tc-pf-add-btn {
+  pointer-events: auto;
+  border: 4px solid rgba(103, 179, 70, 0.26);
+  background: #6db344;
+  color: #ffffff;
+  border-radius: 99px;
+  padding: 11px 22px;
+  font-size: 15px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+
+.tc-pf-add-btn:active {
+  transform: scale(0.96);
+}
+
+.tc-pf-add-btn svg {
+  width: 19px;
+  height: 19px;
+}
+
+/* Add Post Modal Preview & Gradients */
+.tc-pf-post-preview {
+  width: 100%;
+  height: 190px;
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  padding: 14px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.tc-pf-post-ph {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.tc-pf-post-txt-prev {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.tc-pf-bg-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.tc-pf-bg-row.hidden {
+  display: none !important;
+}
+
+.tc-pf-bg-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+
+.tc-pf-bg-dot.active {
+  border-color: #ffffff;
+  transform: scale(1.12);
+}
+
+/* Post Viewer Modal */
+.tc-pf-pv-stage {
+  border-radius: 14px;
+  overflow: hidden;
+  background: #000000;
+  margin-bottom: 10px;
+  max-height: 55vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tc-pf-pv-media {
+  width: 100%;
+  max-height: 55vh;
+  object-fit: contain;
+  display: block;
+}
+
+.tc-pf-pv-textcard {
+  width: 100%;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.tc-pf-pv-cap {
+  font-size: 14.5px;
+  color: #f1f5f9;
+  line-height: 1.45;
+  margin-bottom: 4px;
+}
+
+.tc-pf-pv-time {
+  font-size: 12px;
+  color: #8e94a5;
+  margin-bottom: 12px;
+}
+
+.tc-pf-pv-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.tc-pf-pv-actions svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Bottom Nav Profile Avatar Thumbnail */
+.tc-bnav-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+}
+
+.bottom-nav-item.active .tc-bnav-avatar {
+  border-color: #7bc65b;
+}
