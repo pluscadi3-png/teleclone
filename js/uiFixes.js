@@ -1179,6 +1179,155 @@
     ensurePlusUploadButton();
     markCopyableUsernames();
   }
+;(() => {
+  "use strict";
+
+  function tagStoriesTray() {
+    const direct = document.querySelector(
+      "#stories-bar, #storiesBar, #story-bar, #storyBar, .stories-bar, .stories-tray, .stories-row, .stories-strip, .story-bar, .stories-container"
+    );
+    if (
+      direct &&
+      !direct.querySelector('input[type="search"], input[placeholder*="Search" i]')
+    ) {
+      direct.classList.add("tc-stories-tray");
+      return;
+    }
+
+    // "My Story" label se exact horizontal stories tray pakrein
+    const labels = document.querySelectorAll("div, span, p, button");
+    for (const el of labels) {
+      if ((el.textContent || "").trim().toLowerCase() !== "my story") continue;
+      let box = el.parentElement;
+      while (box && box !== document.body) {
+        const txt = box.textContent || "";
+        const hasSearchOrTabs =
+          !!box.querySelector('input[type="search"], input[placeholder*="Search" i]') ||
+          (txt.includes("All") && txt.includes("Personal") && txt.includes("Bots"));
+        if (hasSearchOrTabs) break;
+
+        const rect = box.getBoundingClientRect();
+        const h = Math.max(rect.height, box.scrollHeight);
+        if (h >= 64 && h <= 165 && rect.width > 180) {
+          box.classList.add("tc-stories-tray");
+          return;
+        }
+        box = box.parentElement;
+      }
+    }
+  }
+
+  function findArchivedRow() {
+    const items = document.querySelectorAll("div, button, li");
+    for (const el of items) {
+      const txt = (el.textContent || "").replace(/\s+/g, " ").trim();
+      if (!txt.toLowerCase().startsWith("archived chats")) continue;
+      if (txt.length > 75) continue;
+      const rect = el.getBoundingClientRect();
+      if (rect.width > 180 && !el.querySelector(".tc-archived-sync")) {
+        el.classList.add("tc-archived-sync");
+        return el;
+      }
+    }
+    return document.querySelector(".tc-archived-sync");
+  }
+
+  function setPullReveal(open) {
+    document.body.classList.toggle("tc-stories-open", open);
+    const arch = findArchivedRow();
+    if (arch) {
+      arch.classList.toggle("tc-archive-force-open", open);
+    }
+  }
+
+  function findChatScroller(target) {
+    let node = target;
+    while (node && node !== document.body) {
+      const st = window.getComputedStyle(node);
+      if (
+        (st.overflowY === "auto" || st.overflowY === "scroll") &&
+        node.scrollHeight >= node.clientHeight
+      ) {
+        return node;
+      }
+      node = node.parentElement;
+    }
+    return (
+      document.querySelector(".chat-list, .chats-list, #chat-list, #chatList, .sidebar-body") ||
+      document.scrollingElement
+    );
+  }
+
+  let startY = 0;
+  let startX = 0;
+  let canPull = false;
+
+  document.addEventListener(
+    "touchstart",
+    (e) => {
+      if (!e.touches || e.touches.length !== 1) return;
+      if (e.target.closest("#tcCameraModal, #tcProfileBackdrop, .modal, .messages, .chat-messages, .settings-view, .settings-panel")) {
+        canPull = false;
+        return;
+      }
+      startY = e.touches[0].clientY;
+      startX = e.touches[0].clientX;
+      const scroller = findChatScroller(e.target);
+      canPull = !scroller || scroller.scrollTop <= 4;
+    },
+    { passive: true }
+  );
+
+  document.addEventListener(
+    "touchmove",
+    (e) => {
+      if (!e.touches || e.touches.length !== 1) return;
+      const dy = e.touches[0].clientY - startY;
+      const dx = e.touches[0].clientX - startX;
+
+      // Stories ko left/right swipe karte waqt drawer band na ho
+      if (Math.abs(dx) > Math.abs(dy)) return;
+
+      if (canPull && dy > 42) {
+        setPullReveal(true);
+      } else if (document.body.classList.contains("tc-stories-open") && dy < -28) {
+        setPullReveal(false);
+      }
+    },
+    { passive: true }
+  );
+
+  document.addEventListener(
+    "scroll",
+    (e) => {
+      if (
+        document.body.classList.contains("tc-stories-open") &&
+        e.target &&
+        typeof e.target.scrollTop === "number" &&
+        e.target.scrollTop > 30
+      ) {
+        setPullReveal(false);
+      }
+    },
+    true
+  );
+
+  function initStoriesPullReveal() {
+    tagStoriesTray();
+    findArchivedRow();
+    const obs = new MutationObserver(() => {
+      tagStoriesTray();
+      findArchivedRow();
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
+  }
+
+  if (document.readyState === "loading") {
+    window.addEventListener("DOMContentLoaded", initStoriesPullReveal);
+  } else {
+    initStoriesPullReveal();
+  }
+})();
 
   patchThemeSystem();
   bindChatControls();
