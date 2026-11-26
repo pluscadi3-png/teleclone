@@ -1475,3 +1475,35 @@ body.tc-stories-open .tc-archive-force-open {
   opacity: 1 !important;
   pointer-events: auto !important;
 }
+
+/* ===== Archived Chats: Duplicate Hide + Pull-Down Reveal with Stories ===== */
+#archived-banner {
+  display: none !important;
+}
+
+#archived-banner-row {
+  max-height: 0 !important;
+  min-height: 0 !important;
+  opacity: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  border-width: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+  transition: max-height 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 0.22s ease,
+              padding 0.25s ease,
+              margin 0.25s ease !important;
+}
+
+body.tc-stories-open #archived-banner-row {
+  max-height: 84px !important;
+  opacity: 1 !important;
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+  margin-bottom: 4px !important;
+  pointer-events: auto !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}

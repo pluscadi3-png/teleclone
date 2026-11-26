@@ -1327,6 +1327,15 @@
   } else {
     initStoriesPullReveal();
   }
+  document.addEventListener(
+    "click",
+    (e) => {
+      if (e.target.closest("#archived-banner-row, .bottom-nav, [data-nav], [data-tab]")) {
+        setPullReveal(false);
+      }
+    },
+    true
+  );
 })();
 
   patchThemeSystem();
