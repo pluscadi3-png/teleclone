@@ -348,6 +348,32 @@ def delete_profile_post(post_id: int, user: dict = Depends(get_current_user)):
     finally:
         conn.close()
 
+@router.get("/users/{target_user_id}/posts")
+def list_user_public_posts(target_user_id: int, user: dict = Depends(get_current_user)):
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            """
+            SELECT * FROM profile_posts
+            WHERE user_id = ? AND archived = 0
+            ORDER BY id DESC
+            """,
+            (target_user_id,),
+        ).fetchall()
+        posts = [
+            {
+                "id": r["id"],
+                "caption": r["caption"] or "",
+                "mediaUrl": r["media_url"] or "",
+                "bg": r["bg_color"] or "linear-gradient(135deg, #667eea, #764ba2)",
+                "time": fmt_call_time(r["created_at"]),
+            }
+            for r in rows
+        ]
+        return {"ok": True, "posts": posts}
+    finally:
+        conn.close()       
+
 @router.get("/users/avatars")
 def get_all_user_avatars(user: dict = Depends(get_current_user)):
     conn = get_conn()
