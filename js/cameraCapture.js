@@ -157,23 +157,32 @@
     });
   }
 
-  // ===== 3. "+" Attach Menu mein "Camera" Button Inject Karein =====
+ // ===== 3. "+" Attach Menu mein "Camera" Button Inject Karein =====
+  const ATTACH_KEYWORDS_RE = /(photo|image|gallery|video|file|document|location|poll|contact|self-destruct|timer)/i;
+
   function findAttachMenu() {
     const direct = document.querySelector(
-      "#attachMenu, .attach-menu, .attachment-menu, #attachmentMenu"
+      "#attachMenu, #attachPopover, #attachPopup, #attachDropdown, #attachmentMenu, .attach-menu, .attach-popover, .attach-popup, .attach-dropdown, .attachment-menu"
     );
     if (direct) return direct;
 
-    // Fallback: Photo / File / Location items ka parent menu dhoondein
-    const items = document.querySelectorAll("button, .attach-item, .menu-item, li");
-    for (const el of items) {
-      const txt = (el.textContent || "").trim().toLowerCase();
-      if (txt === "location" || txt.includes("share location") || txt === "photo or video" || txt === "photo") {
-        const parent = el.parentElement;
-        if (parent && parent.children.length >= 2 && parent.children.length <= 8) {
-          return parent;
+    // Emojis wale buttons ya divs (jaise "📍 Location", "🖼️ Photo", "📄 File") se exact menu dhoondein
+    const containers = document.querySelectorAll("div, ul, menu, section");
+    for (const box of containers) {
+      if (box.closest(".bottom-nav, nav, .settings-view, .settings-panel, #tcCameraModal, #tcProfileBackdrop")) {
+        continue;
+      }
+      const kids = Array.from(box.children);
+      if (kids.length < 2 || kids.length > 9) continue;
+
+      let matched = 0;
+      for (const kid of kids) {
+        const txt = (kid.textContent || "").replace(/\s+/g, " ").trim();
+        if (txt.length > 0 && txt.length <= 38 && ATTACH_KEYWORDS_RE.test(txt)) {
+          matched++;
         }
       }
+      if (matched >= 2) return box;
     }
     return null;
   }
@@ -182,11 +191,14 @@
     const menu = findAttachMenu();
     if (!menu || menu.querySelector("#tcAttachCameraBtn")) return;
 
-    const sampleItem = menu.querySelector("button, .attach-item, .menu-item, li");
+    const sampleItem = Array.from(menu.children).find(
+      (el) => el.tagName === "BUTTON" || el.tagName === "DIV" || el.tagName === "LI"
+    );
+
     const btn = document.createElement("button");
     btn.id = "tcAttachCameraBtn";
     btn.type = "button";
-    btn.className = sampleItem
+    btn.className = sampleItem && sampleItem.className
       ? `${sampleItem.className} tc-attach-camera-item`
       : "tc-attach-camera-item";
     btn.innerHTML = `<span class="tc-cam-menu-ico">${ICONS.camera}</span><span>Camera</span>`;
@@ -194,9 +206,8 @@
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      // Attach menu band karein
-      menu.classList.add("hidden");
-      menu.classList.remove("open", "show", "active");
+      // App ke apne outside-click handler se attach menu cleanly band karein
+      document.body.click();
       openCameraFlow();
     });
 
@@ -496,9 +507,27 @@
   }
 
   // ===== Init =====
-  window.addEventListener("DOMContentLoaded", () => {
+  function initCameraPlugin() {
     injectCameraOption();
     const obs = new MutationObserver(injectCameraOption);
-    obs.observe(document.body, { childList: true, subtree: true });
-  });
+    obs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style"] });
+
+    // "+" button click hote hi dynamic menu mein bhi inject karein
+    document.addEventListener(
+      "click",
+      (e) => {
+        if (e.target.closest('#attachBtn, .attach-btn, [id*="attach" i], [title*="attach" i]')) {
+          setTimeout(injectCameraOption, 30);
+          setTimeout(injectCameraOption, 150);
+        }
+      },
+      true
+    );
+  }
+
+    if (document.readyState === "loading") {
+    window.addEventListener("DOMContentLoaded", initCameraPlugin);
+  } else {
+    initCameraPlugin();
+  }
 })();
