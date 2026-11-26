@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Upl
 from pydantic import BaseModel
 
 from backend.auth import get_current_user, make_initials
+from .auth import get_current_user, can_view_phone 
 from backend.database import get_conn
 from backend.ws_manager import ws_manager
 import mimetypes
@@ -1067,7 +1068,7 @@ def get_chat_info(chat_id: int, user: dict = Depends(get_current_user)):
                     "id": u.get("id"),
                     "name": u.get("display_name") or u.get("name") or u.get("full_name") or u.get("username") or "User",
                     "username": u.get("username") or "",
-                    "phone": u.get("phone") or u.get("phone_number") or "",
+                    "phone": u["phone"] if can_view_phone(conn, u["id"], user["id"]) else "",
                     "bio": u.get("bio") or u.get("about") or "",
                     "avatar": u.get("avatar_url") or u.get("avatar") or "",
                     "last_seen": u.get("last_seen") or u.get("status") or "",

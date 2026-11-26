@@ -14,6 +14,7 @@
     fontSize: 15,
     animations: true,
     enterToSend: true,
+    phonePrivacy: "everybody",
     lastSeen: "everybody",
     profilePhotoPrivacy: "everybody",
     forwardLinkPrivacy: "everybody",
@@ -258,6 +259,12 @@
             token
           };
           upsertSavedAccount(currentUser, token);
+          try {
+  const priv = await apiReq("/api/auth/privacy", { token });
+  if (priv && priv.phonePrivacy) {
+    savePrefs({ phonePrivacy: priv.phonePrivacy });
+  }
+} catch (_) {}
         }
       } catch (_) {}
     }
@@ -686,7 +693,7 @@
     const menuItems = [
       { id: "account", icon: ICONS.user, bg: "#2e96f5", title: "Account", sub: "Number, Username, Bio" },
       { id: "chat", icon: ICONS.chat, bg: "#f59e0b", title: "Chat Settings", sub: "Wallpaper, Night Mode, Animations" },
-      { id: "privacy", icon: ICONS.key, bg: "#49c65c", title: "Privacy & Security", sub: "Last Seen, Passcode Lock, Privacy" },
+      { id: "privacy", icon: ICONS.key, bg: "#49c65c", title: "Privacy & Security", sub: "Phone Number, Passcode Lock, Last Seen" },
       { id: "notifications", icon: ICONS.bell, bg: "#ef4444", title: "Notifications", sub: "Sounds, Calls, Badges" },
       { id: "storage", icon: ICONS.pie, bg: "#3b82f6", title: "Data and Storage", sub: "Media download settings" },
       { id: "folders", icon: ICONS.folder, bg: "#0ea5e9", title: "Chat Folders", sub: "Manage tabs & filters" },
@@ -1171,6 +1178,23 @@
             <div class="tc-st-card-label"><span>Privacy Controls</span></div>
             <div class="tc-st-select-row">
               <span>Last Seen & Online</span>
+              <div class="tc-st-select-row">
+           <span>Phone Number</span>
+           <select id="tcPrivPhone" class="tc-st-select">
+             <option value="everybody" ${p.phonePrivacy === "everybody" ? "selected" : ""}>Everybody</option>
+             <option value="contacts" ${p.phonePrivacy === "contacts" ? "selected" : ""}>My Contacts</option>
+             <option value="nobody" ${p.phonePrivacy === "nobody" ? "selected" : ""}>Nobody</option>
+           </select>
+         </div>
+         <div id="tcPrivPhoneHint" style="font-size:12px;color:#8e94a5;padding:0 0 10px;border-bottom:1px solid rgba(255,255,255,0.06);">
+           ${
+             p.phonePrivacy === "nobody"
+               ? "Koi bhi user aapka phone number nahi dekh sakega."
+               : p.phonePrivacy === "contacts"
+               ? "Sirf aapke saved contacts aapka phone number dekh sakte hain."
+               : "Har koi aapka phone number dekh sakta hai."
+           }
+         </div>
               <select id="tcPrivLastSeen" class="tc-st-select">
                 <option value="everybody" ${p.lastSeen === "everybody" ? "selected" : ""}>Everybody</option>
                 <option value="contacts" ${p.lastSeen === "contacts" ? "selected" : ""}>My Contacts</option>
@@ -1217,6 +1241,28 @@
       }
       const lockBtn = panel.querySelector("#tcPinLockNowBtn");
       if (lockBtn) lockBtn.onclick = showPasscodeLockScreen;
+      panel.querySelector("#tcPrivPhone").onchange = async (e) => {
+     const val = e.target.value;
+     savePrefs({ phonePrivacy: val });
+     const hint = panel.querySelector("#tcPrivPhoneHint");
+     if (hint) {
+       hint.textContent =
+         val === "nobody"
+           ? "Koi bhi user aapka phone number nahi dekh sakega."
+           : val === "contacts"
+           ? "Sirf aapke saved contacts aapka phone number dekh sakte hain."
+           : "Har koi aapka phone number dekh sakta hai.";
+     }
+     try {
+       await apiReq("/api/auth/privacy", {
+         method: "PUT",
+         body: { phonePrivacy: val }
+       });
+       toast(val === "nobody" ? "Phone number hidden from everyone" : "Phone number privacy updated");
+     } catch (err) {
+       toast(err.message || "Server par save nahi ho saka");
+     }
+   };
 
       panel.querySelector("#tcPrivLastSeen").onchange = (e) => {
         savePrefs({ lastSeen: e.target.value });

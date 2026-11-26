@@ -296,9 +296,76 @@ def get_me(user: dict = Depends(get_current_user)):
     return {"ok": True, "user": user}
 
 
+class PrivacyUpdateRequest(BaseModel):
+    phonePrivacy: str = "everybody"
+
 @router.put("/profile")
 def update_profile(body: ProfileUpdateRequest, user: dict = Depends(get_current_user)):
     conn = get_conn()
+
+
+def ensure_privacy_column(conn):
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN phone_privacy TEXT DEFAULT 'everybody'")
+        conn.commit()
+    except Exception:
+        pass
+
+
+def can_view_phone(conn, target_user_id: int, viewer_user_id: int) -> bool:
+    if not target_user_id or int(target_user_id) == int(viewer_user_id):
+        return True
+    ensure_privacy_column(conn)
+    row = conn.execute(
+        "SELECT phone_privacy FROM users WHERE id = ?",
+        (target_user_id,),
+    ).fetchone()
+    setting = (row["phone_privacy"] if row and row["phone_privacy"] else "everybody").lower()
+    if setting == "nobody":
+        return False
+    if setting == "contacts":
+        try:
+            in_contacts = conn.execute(
+                "SELECT 1 FROM contacts WHERE user_id = ? AND contact_user_id = ? LIMIT 1",
+                (target_user_id, viewer_user_id),
+            ).fetchone()
+            return bool(in_contacts)
+        except Exception:
+            return False
+    return True
+
+
+@router.get("/privacy")
+def get_privacy_settings(user: dict = Depends(get_current_user)):
+    conn = get_conn()
+    try:
+        ensure_privacy_column(conn)
+        row = conn.execute(
+            "SELECT phone_privacy FROM users WHERE id = ?",
+            (user["id"],),
+        ).fetchone()
+        val = (row["phone_privacy"] if row and row["phone_privacy"] else "everybody").lower()
+        return {"ok": True, "phonePrivacy": val}
+    finally:
+        conn.close()
+
+
+@router.put("/privacy")
+def update_privacy_settings(body: PrivacyUpdateRequest, user: dict = Depends(get_current_user)):
+    val = (body.phonePrivacy or "everybody").strip().lower()
+    if val not in {"everybody", "contacts", "nobody"}:
+        raise HTTPException(status_code=400, detail="Invalid privacy option")
+    conn = get_conn()
+    try:
+        ensure_privacy_column(conn)
+        conn.execute(
+            "UPDATE users SET phone_privacy = ? WHERE id = ?",
+            (val, user["id"]),
+        )
+        conn.commit()
+        return {"ok": True, "phonePrivacy": val}
+    finally:
+        conn.close()
     try:
         row = conn.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
         new_name = (body.name.strip()[:64] if body.name and body.name.strip() else row["name"])
