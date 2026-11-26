@@ -176,12 +176,31 @@
       pinnedMsg.text || (pinnedMsg.attachment ? `📎 ${pinnedMsg.attachment.name || "Media"}` : "Pinned message");
   }
 
-  function renderAttachmentHtml(att) {
+ function renderAttachmentHtml(att) {
     if (!att) return "";
+    const srcStr = String(att.src || "");
+    const nameStr = String(att.name || "");
+    const isVideo =
+      att.type === "video" ||
+      /\.(mp4|mov|m4v|mkv|3gp|avi)(\?.*)?$/i.test(srcStr) ||
+      /\.(mp4|mov|m4v|mkv|3gp|avi)$/i.test(nameStr);
+
     if (att.type === "photo" && att.src) {
-      return `<img src="${att.src}" alt="${escapeHtml(att.name || "Photo")}" class="msg-media-img" />`;
+      return `
+        <div class="msg-media-wrap" data-media-type="photo" data-media-src="${escapeHtml(att.src)}" data-media-name="${escapeHtml(att.name || "photo.jpg")}">
+          <img src="${escapeHtml(att.src)}" alt="${escapeHtml(att.name || "Photo")}" class="msg-media-img" loading="lazy" />
+        </div>
+      `;
     }
-   if (att.type === "voice") {
+    if (isVideo && att.src) {
+      return `
+        <div class="msg-media-wrap msg-video-wrap" data-media-type="video" data-media-src="${escapeHtml(att.src)}" data-media-name="${escapeHtml(att.name || "video.mp4")}">
+          <video src="${escapeHtml(att.src)}#t=0.1" class="msg-media-video" preload="metadata" playsinline muted></video>
+          <div class="msg-video-play-badge" aria-label="Play video">▶</div>
+        </div>
+      `;
+    }
+    if (att.type === "voice") {
       const safeSrc = escapeHtml(att.src || "");
       return `
         <div class="msg-voice-card" data-voice-src="${safeSrc}">
@@ -205,10 +224,15 @@
     return `
       <div class="msg-file-card">
         <div class="msg-file-icon">📄</div>
-        <div>
+        <div style="flex:1;min-width:0;">
           <div class="msg-file-name">${escapeHtml(att.name || "Document.pdf")}</div>
           <div class="msg-file-size">${escapeHtml(att.size || "File")}</div>
         </div>
+        ${
+          att.src
+            ? `<button type="button" class="msg-file-dl-btn" data-dl-src="${escapeHtml(att.src)}" data-dl-name="${escapeHtml(att.name || "file")}" title="Download">⬇</button>`
+            : ""
+        }
       </div>
     `;
   }
@@ -376,7 +400,7 @@
 
       const replyHtml = msg.replyTo
         ? `
-          <div class="msg-reply-box">
+          <div class="msg-reply-box" data-reply-id="${escapeHtml(String(msg.replyTo.id || ""))}" data-reply-text="${escapeHtml(msg.replyTo.text || "")}" data-reply-author="${escapeHtml(msg.replyTo.author || "")}">
             <span class="msg-reply-author">${escapeHtml(msg.replyTo.author)}</span>
             <span class="msg-reply-snippet">${escapeHtml(msg.replyTo.text)}</span>
           </div>
@@ -771,9 +795,10 @@
       const act = item.dataset.msgCtx;
       closeAllPopups();
 
-      if (act === "reply") {
+     if (act === "reply") {
         editingMsgId = null;
         replyingToMsg = {
+          id: msg.id,
           author: msg.sender === "me" ? "You" : msg.senderName || chat.name,
           text: msg.text || (msg.attachment ? `📎 ${msg.attachment.label || msg.attachment.name}` : "Message")
         };
@@ -781,7 +806,8 @@
         els.bannerText.textContent = replyingToMsg.text;
         els.banner.classList.remove("hidden");
         els.msgInput.focus();
-      } else if (act === "edit") {
+      }
+       else if (act === "edit") {
         replyingToMsg = null;
         editingMsgId = msg.id;
         els.bannerTitle.textContent = "Edit Message";
@@ -799,12 +825,11 @@
         navigator.clipboard?.writeText(msg.text || "").catch(() => {});
         toast("Text copied!");
       } else if (act === "forward") {
-        Store.addMessage("chat_saved", {
-          sender: "me",
-          text: `↪️ Forwarded from ${chat.name}:\n${msg.text || "[Attachment]"}`
-        });
-        if (window.App) window.App.renderAll();
-        toast("Forwarded to Saved Messages 🔖");
+        if (window.TCChatEnhancements) {
+          window.TCChatEnhancements.openForwardModal(msg, chat);
+          if (window.App) window.App.renderAll();
+          toast("Forwarded to Saved Messages 🔖");
+        }
       } else if (act === "delete") {
         Store.deleteMessage(chat.id, msg.id);
         if (window.App) window.App.renderAll();

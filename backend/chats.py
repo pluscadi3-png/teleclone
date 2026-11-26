@@ -893,17 +893,22 @@ async def upload_media(request: Request, user: dict = Depends(get_current_user))
     is_image = file_ctype.lower().startswith("image/") or ext in {
         ".jpg", ".jpeg", ".png", ".gif", ".webp", ".jfif"
     }
-    is_audio = file_ctype.lower().startswith("audio/") or ext in {
-        ".webm", ".ogg", ".opus", ".mp3", ".m4a", ".wav", ".aac"
+    is_video = file_ctype.lower().startswith("video/") or ext in {
+        ".mp4", ".mov", ".m4v", ".mkv", ".3gp", ".avi"
     }
+    is_audio = (not is_video) and (
+        file_ctype.lower().startswith("audio/") or ext in {
+            ".webm", ".ogg", ".opus", ".mp3", ".m4a", ".wav", ".aac"
+        }
+    )
     size_str = (
         f"{len(content) / (1024 * 1024):.1f} MB"
         if len(content) >= 1024 * 1024
         else f"{max(1, len(content) // 1024)} KB"
     )
 
-    att_type = "photo" if is_image else ("voice" if is_audio else "file")
-    att_label = "Photo" if is_image else ("Voice message" if is_audio else orig_name)
+    att_type = "photo" if is_image else ("video" if is_video else ("voice" if is_audio else "file"))
+    att_label = "Photo" if is_image else ("Video" if is_video else ("Voice message" if is_audio else orig_name))
 
     return {
         "ok": True,

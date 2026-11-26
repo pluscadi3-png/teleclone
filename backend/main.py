@@ -3,7 +3,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect,  Request
+from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect,  Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -117,7 +117,17 @@ async def serve_service_worker():
 @app.get("/logo.png")
 async def serve_logo():
     return FileResponse(ROOT_DIR / "logo.png", media_type="image/png")
-
+@app.get("/api/media/download/{filename}")
+async def download_uploaded_media(filename: str):
+    safe_name = Path(filename).name
+    target = UPLOAD_DIR / safe_name
+    if not target.exists() or not target.is_file():
+        raise HTTPException(status_code=404, detail="File nahi mili")
+    return FileResponse(
+        target,
+        filename=safe_name,
+        media_type="application/octet-stream",
+    )
 @app.get("/")
 def serve_frontend():
     index_file = ROOT_DIR / "index.html"
