@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "894959242220",
+    "project_id": "teleclone-9f422",
+    "storage_bucket": "teleclone-9f422.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:894959242220:android:8c5d30bd2571baa9204ec9",
+        "android_client_info": {
+          "package_name": "com.teleclone.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAT1wwFzYU7rgxem_QoccbmrDxI_F9_cLY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

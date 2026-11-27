@@ -15,6 +15,7 @@ from backend.auth import get_current_user, make_initials
 from .auth import get_current_user, can_view_phone 
 from backend.database import get_conn
 from backend.ws_manager import ws_manager
+from backend.push import notify_chat_message
 import mimetypes
 
 mimetypes.add_type("audio/wav", ".wav")
@@ -724,6 +725,17 @@ async def send_message(chat_id: int, body: SendMessageRequest, user: dict = Depe
         chat_id,
         {"type": "new_message", "chatId": chat_id, "message": msg_for_others},
         exclude_user_id=user["id"],
+    )
+
+    # Send background FCM push notifications to other chat members
+    asyncio.create_task(
+        notify_chat_message(
+            chat_id,
+            user["id"],
+            user.get("name", "TeleClone"),
+            text,
+            msg_for_others.get("attachment"),
+        )
     )
 
     # Trigger Bot Engine (BotFather + Custom User Bots) asynchronously

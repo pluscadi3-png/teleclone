@@ -17,6 +17,7 @@ from backend.bot_api import (
 from backend.chats import register_bot_hooks, router as chats_router, run_expiry_watcher,  UPLOAD_DIR
 from backend.stories import router as stories_router
 from backend.social_api import router as social_router
+from backend.push import notify_incoming_call, router as push_router
 from backend.database import get_conn, init_db
 from backend.ws_manager import ws_manager
 
@@ -60,6 +61,7 @@ app.include_router(chats_router)
 app.include_router(bot_api_router)
 app.include_router(stories_router)
 app.include_router(social_router)
+app.include_router(push_router)
 
 @app.get("/api/health")
 def health_check():
@@ -140,6 +142,15 @@ async def websocket_endpoint(ws: WebSocket, token: str = Query(default="")):
 
                 target_id = int(target_id)
                 if ev_type == "call_offer" and not ws_manager.is_online(target_id):
+                    conn = get_conn()
+                    try:
+                        u_off = conn.execute("SELECT name FROM users WHERE id = ?", (user_id,)).fetchone()
+                        c_name = u_off["name"] if u_off else "Someone"
+                    finally:
+                        conn.close()
+                    asyncio.create_task(
+                        notify_incoming_call(target_id, c_name, data.get("callType", "voice"), chat_id)
+                    )
                     await ws.send_json(
                         {
                             "type": "call_offline",
@@ -172,6 +183,11 @@ async def websocket_endpoint(ws: WebSocket, token: str = Query(default="")):
                         conn.close()
 
                 await ws_manager.send_to_user(target_id, relay)
+                if ev_type == "call_offer":
+                    c_name = (relay.get("caller") or {}).get("name", "Someone")
+                    asyncio.create_task(
+                        notify_incoming_call(target_id, c_name, data.get("callType", "voice"), chat_id)
+                    )
     except WebSocketDisconnect:
         await ws_manager.disconnect(user_id, ws)
     except Exception:
