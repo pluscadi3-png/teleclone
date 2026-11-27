@@ -314,6 +314,7 @@
         return null;
       }
     }
+  };
   // ===== 3. Universal Voice Bubble Player (Sender & Receiver Dono Ke Liye) =====
   function stopActivePlayback() {
     if (!activePlayback) return;

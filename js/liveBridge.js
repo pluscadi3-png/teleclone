@@ -192,18 +192,23 @@
 
       const state = Store.getState();
 
-      if (!Array.isArray(chat.messages)) chat.messages = [];
+      if (data.type === "new_message") {
+        const cid = String(data.chatId);
+        const msg = normalizeMessage(data.message);
+        let chat = Store.getChatById(cid);
+
+        if (!chat) {
+          await syncChats();
+          chat = Store.getChatById(cid);
+        }
+        if (!chat) return;
+
+        if (!Array.isArray(chat.messages)) chat.messages = [];
         const reconciled =
           msg.sender === "me" && window.TCOptimistic
             ? window.TCOptimistic.reconcileIncoming(cid, msg)
             : false;
         if (!reconciled && !chat.messages.some((m) => String(m.id) === msg.id)) {
-          chat.messages.push(msg);
-        }
-        if (!chat) return;
-
-        if (!Array.isArray(chat.messages)) chat.messages = [];
-        if (!chat.messages.some((m) => String(m.id) === msg.id)) {
           chat.messages.push(msg);
         }
 
