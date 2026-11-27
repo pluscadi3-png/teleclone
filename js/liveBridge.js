@@ -192,14 +192,13 @@
 
       const state = Store.getState();
 
-      if (data.type === "new_message") {
-        const cid = String(data.chatId);
-        const msg = normalizeMessage(data.message);
-        let chat = Store.getChatById(cid);
-
-        if (!chat) {
-          await syncChats();
-          chat = Store.getChatById(cid);
+      if (!Array.isArray(chat.messages)) chat.messages = [];
+        const reconciled =
+          msg.sender === "me" && window.TCOptimistic
+            ? window.TCOptimistic.reconcileIncoming(cid, msg)
+            : false;
+        if (!reconciled && !chat.messages.some((m) => String(m.id) === msg.id)) {
+          chat.messages.push(msg);
         }
         if (!chat) return;
 
@@ -338,13 +337,28 @@
     }
 
     // Override addMessage -> Upload media (if data URL) + POST /api/chats/{id}/messages
+   // Override addMessage -> Instant optimistic bubble + upload + POST /api/chats/{id}/messages
     Store.addMessage = function (chatId, msgData) {
       const cid = resolveChatId(chatId);
       if (!cid) return null;
 
+      const rawAtt = msgData.attachment || null;
+      const existingTempId = rawAtt && rawAtt._tempId ? rawAtt._tempId : null;
+      let cleanAtt = rawAtt ? { ...rawAtt } : null;
+      if (cleanAtt) {
+        delete cleanAtt._tempId;
+        delete cleanAtt._uploading;
+      }
+
+      const tempId = existingTempId
+        ? existingTempId
+        : window.TCOptimistic
+        ? window.TCOptimistic.pushPending(cid, { ...msgData, attachment: cleanAtt })
+        : null;
+
       (async () => {
         try {
-          let attachment = msgData.attachment || null;
+          let attachment = cleanAtt;
           if (attachment && attachment.src && attachment.src.startsWith("data:")) {
             const blob = await fetch(attachment.src).then((r) => r.blob());
             const fd = new FormData();
@@ -353,7 +367,7 @@
             attachment = up.attachment;
           }
 
-          await api(`/api/chats/${cid}/messages`, {
+          const res = await api(`/api/chats/${cid}/messages`, {
             method: "POST",
             body: {
               text: msgData.text || "",
@@ -363,7 +377,17 @@
               silent: !!msgData.silent
             }
           });
+          if (tempId && window.TCOptimistic) {
+            window.TCOptimistic.markSent(
+              cid,
+              tempId,
+              res && res.message ? normalizeMessage(res.message) : null
+            );
+          }
         } catch (err) {
+          if (tempId && window.TCOptimistic) {
+            window.TCOptimistic.markFailed(cid, tempId);
+          }
           if (window.App) window.App.showToast(err.message);
         }
       })();
@@ -1003,7 +1027,6 @@
       fileInput.classList.remove("hidden");
       fileInput.style.cssText = "position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;";
 
-      // Direct FormData upload (Photos, Videos, Documents — sab ke liye 100% reliable)
       fileInput.addEventListener(
         "change",
         async (e) => {
@@ -1013,29 +1036,42 @@
           e.target.value = "";
           if (!file || !cid) return;
 
-          if (window.App) window.App.showToast(`Uploading ${file.name}...`);
+          const msgInput = $("msg-input");
+          const caption = (msgInput?.value || "").trim();
+          if (msgInput) {
+            msgInput.value = "";
+            msgInput.style.height = "auto";
+          }
+
+          const tempId = window.TCOptimistic
+            ? window.TCOptimistic.pushPendingFile(cid, file, caption)
+            : null;
+
           try {
             const fd = new FormData();
             fd.append("file", file, file.name);
             const up = await api("/api/upload", { method: "POST", body: fd });
-            const msgInput = $("msg-input");
-            const caption = (msgInput?.value || "").trim();
-            await api(`/api/chats/${cid}/messages`, {
+            const res = await api(`/api/chats/${cid}/messages`, {
               method: "POST",
               body: { text: caption, attachment: up.attachment }
             });
-            if (msgInput) {
-              msgInput.value = "";
-              msgInput.style.height = "auto";
+            if (tempId && window.TCOptimistic) {
+              window.TCOptimistic.markSent(
+                cid,
+                tempId,
+                res && res.message ? normalizeMessage(res.message) : null
+              );
             }
-            if (window.App) window.App.showToast("Uploaded & sent! ✓");
           } catch (err) {
+            if (tempId && window.TCOptimistic) {
+              window.TCOptimistic.markFailed(cid, tempId);
+            }
             if (window.App) window.App.showToast("Upload failed: " + err.message);
           }
         },
         true
       );
-
+        
       // 2. Direct 1-Tap 📷 Photo Button neeche composer mein add karein
       const attachBtn = $("attach-btn");
       if (attachBtn && !$("quick-photo-btn")) {

@@ -176,10 +176,11 @@
       pinnedMsg.text || (pinnedMsg.attachment ? `📎 ${pinnedMsg.attachment.name || "Media"}` : "Pinned message");
   }
 
- function renderAttachmentHtml(att) {
+function renderAttachmentHtml(att) {
     if (!att) return "";
     const srcStr = String(att.src || "");
     const nameStr = String(att.name || "");
+    const isUploading = Boolean(att._uploading);
     const isVideo =
       att.type === "video" ||
       /\.(mp4|mov|m4v|mkv|3gp|avi)(\?.*)?$/i.test(srcStr) ||
@@ -187,24 +188,31 @@
 
     if (att.type === "photo" && att.src) {
       return `
-        <div class="msg-media-wrap" data-media-type="photo" data-media-src="${escapeHtml(att.src)}" data-media-name="${escapeHtml(att.name || "photo.jpg")}">
+        <div class="msg-media-wrap ${isUploading ? "is-uploading" : ""}" data-media-type="photo" data-media-src="${escapeHtml(att.src)}" data-media-name="${escapeHtml(att.name || "photo.jpg")}">
           <img src="${escapeHtml(att.src)}" alt="${escapeHtml(att.name || "Photo")}" class="msg-media-img" loading="lazy" />
+          ${isUploading ? '<div class="msg-upload-overlay"><div class="msg-upload-spinner"></div></div>' : ""}
         </div>
       `;
     }
     if (isVideo && att.src) {
       return `
-        <div class="msg-media-wrap msg-video-wrap" data-media-type="video" data-media-src="${escapeHtml(att.src)}" data-media-name="${escapeHtml(att.name || "video.mp4")}">
+        <div class="msg-media-wrap msg-video-wrap ${isUploading ? "is-uploading" : ""}" data-media-type="video" data-media-src="${escapeHtml(att.src)}" data-media-name="${escapeHtml(att.name || "video.mp4")}">
           <video src="${escapeHtml(att.src)}#t=0.1" class="msg-media-video" preload="metadata" playsinline muted></video>
-          <div class="msg-video-play-badge" aria-label="Play video">▶</div>
+          ${
+            isUploading
+              ? '<div class="msg-upload-overlay"><div class="msg-upload-spinner"></div></div>'
+              : '<div class="msg-video-play-badge" aria-label="Play video">▶</div>'
+          }
         </div>
       `;
     }
     if (att.type === "voice") {
       const safeSrc = escapeHtml(att.src || "");
       return `
-        <div class="msg-voice-card" data-voice-src="${safeSrc}">
-          <button class="voice-play-btn" type="button" data-voice-src="${safeSrc}" aria-label="Play voice">▶</button>
+        <div class="msg-voice-card ${isUploading ? "is-uploading" : ""}" data-voice-src="${safeSrc}">
+          <button class="voice-play-btn" type="button" data-voice-src="${safeSrc}" aria-label="Play voice">
+            ${isUploading ? '<span class="msg-upload-mini-spin"></span>' : "▶"}
+          </button>
           <div class="voice-wave"><div class="voice-wave-progress"></div></div>
           <span class="voice-duration" style="font-size:12px;opacity:0.85;">${escapeHtml(att.duration || "0:01")}</span>
         </div>
@@ -222,23 +230,23 @@
       `;
     }
     return `
-      <div class="msg-file-card">
-        <div class="msg-file-icon">📄</div>
+      <div class="msg-file-card ${isUploading ? "is-uploading" : ""}">
+        <div class="msg-file-icon">${isUploading ? '<span class="msg-upload-mini-spin"></span>' : "📄"}</div>
         <div style="flex:1;min-width:0;">
           <div class="msg-file-name">${escapeHtml(att.name || "Document.pdf")}</div>
-          <div class="msg-file-size">${escapeHtml(att.size || "File")}</div>
+          <div class="msg-file-size">${escapeHtml(isUploading ? "Uploading..." : (att.size || "File"))}</div>
         </div>
         ${
-          att.src
+          att.src && !isUploading
             ? `<button type="button" class="msg-file-dl-btn" data-dl-src="${escapeHtml(att.src)}" data-dl-name="${escapeHtml(att.name || "file")}" title="Download">⬇</button>`
             : ""
         }
       </div>
     `;
   }
-
   function renderPollHtml(msg) {
     if (!msg.poll) return "";
+
     const totalVotes = msg.poll.options.reduce((sum, o) => sum + o.votes, 0);
     const optionsHtml = msg.poll.options
       .map((opt, idx) => {
@@ -414,11 +422,18 @@
         ? window.TCChatEnhancements.renderForwardHeader(fwdInfo)
         : "";
       const displayText = fwdInfo ? fwdInfo.body : (msg.text || "");
-
-      const ticks = isMe ? (msg.status === "read" ? "✓✓" : "✓") : "";
+const ticks = isMe
+        ? msg.status === "sending"
+          ? '<span class="msg-tick-sending" title="Sending">🕒</span>'
+          : msg.status === "failed"
+          ? '<span class="msg-tick-failed" title="Failed">❗</span>'
+          : msg.status === "read"
+          ? "✓✓"
+          : "✓"
+        : "";
 
       htmlParts.push(`
-        <div class="msg-row ${isMe ? "outgoing" : "incoming"} ${isMatch ? "highlight" : ""}" data-msg-id="${msg.id}">
+        <div class="msg-row ${isMe ? "outgoing" : "incoming"} ${isMatch ? "highlight" : ""} ${msg.status === "sending" ? "is-sending" : ""} ${msg.status === "failed" ? "is-failed" : ""}" data-msg-id="${msg.id}">
           <div class="msg-bubble" data-msg-id="${msg.id}">
             ${!isMe && msg.senderName ? `<div class="msg-sender-name">${escapeHtml(msg.senderName)}</div>` : ""}
             ${forwardHtml}

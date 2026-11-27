@@ -247,7 +247,7 @@
       await cleanupRecorder();
     },
 
-    async stopAndUpload(durationStr) {
+   async stopAndUpload(durationStr) {
       const captured = pcmBuffers.slice();
       const inRate = recSampleRate;
       pcmBuffers = [];
@@ -264,6 +264,26 @@
 
       const auth = getAuthHeader();
       const filename = `voice_${Date.now()}.wav`;
+
+      // Foran chat mein voice note show karein (uploading spinner + clock ke sath)
+      const activeCid = getCurrentChatId();
+      const localUrl = URL.createObjectURL(wavBlob);
+      const tempId =
+        activeCid && window.TCOptimistic
+          ? window.TCOptimistic.pushPending(activeCid, {
+              text: "",
+              attachment: {
+                type: "voice",
+                name: filename,
+                size: `${Math.max(1, Math.round(wavBlob.size / 1024))} KB`,
+                src: localUrl,
+                duration: durationStr || "0:01",
+                label: "Voice message",
+                _uploading: true
+              }
+            })
+          : null;
+
       const fd = new FormData();
       fd.append("file", wavBlob, filename);
 
@@ -282,16 +302,18 @@
           size: att.size || "",
           src: att.src || "",
           duration: durationStr || "0:01",
-          label: "Voice message"
+          label: "Voice message",
+          _tempId: tempId
         };
       } catch (err) {
         console.error("[TCVoice upload]", err);
+        if (tempId && activeCid && window.TCOptimistic) {
+          window.TCOptimistic.markFailed(activeCid, tempId);
+        }
         showToast(`Voice upload error: ${err.message}`);
         return null;
       }
     }
-  };
-
   // ===== 3. Universal Voice Bubble Player (Sender & Receiver Dono Ke Liye) =====
   function stopActivePlayback() {
     if (!activePlayback) return;

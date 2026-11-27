@@ -4026,3 +4026,59 @@ body {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+
+/* =========================================================
+   INSTANT OPTIMISTIC SEND (UPLOAD SPINNER + CLOCK / FAILED)
+   ========================================================= */
+
+.msg-row.is-sending .msg-bubble {
+  opacity: 0.94;
+}
+
+.msg-row.is-failed .msg-bubble {
+  border: 1px solid rgba(248, 113, 113, 0.55);
+}
+
+.msg-tick-sending {
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.msg-tick-failed {
+  font-size: 12px;
+  color: #f87171;
+}
+
+.msg-upload-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.48);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.msg-upload-spinner {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #ffffff;
+  animation: tcSpin 0.85s linear infinite;
+}
+
+.msg-upload-mini-spin {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  display: inline-block;
+  animation: tcSpin 0.8s linear infinite;
+}
+
+@keyframes tcSpin {
+  to { transform: rotate(360deg); }
+}
