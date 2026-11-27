@@ -181,7 +181,7 @@
     async start() {
       stopActivePlayback();
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        showToast("Is device mein microphone support nahi mil raha");
+        showToast("Microphone is not supported on this device");
         return false;
       }
 
@@ -191,7 +191,7 @@
         recCtx = new AudioContextCls();
         if (recCtx.state === "suspended") await recCtx.resume();
       } catch (err) {
-        showToast("Audio engine start nahi ho saka");
+        showToast("Could not start audio engine");
         return false;
       }
 
@@ -209,7 +209,7 @@
         } catch (err2) {
           await cleanupRecorder();
           const code = (err2 && err2.name) || "PermissionError";
-          showToast(`Mic error (${code}) — Settings > Apps > TeleClone se mic allow karein`);
+          showToast(`Mic error (${code}) — allow microphone permission in Settings > Apps > TeleClone`);
           return false;
         }
       }
@@ -237,7 +237,7 @@
       } catch (err) {
         console.error("[TCVoice start]", err);
         await cleanupRecorder();
-        showToast("Mic recording fail ho gayi");
+        showToast("Microphone recording failed");
         return false;
       }
     },
@@ -254,7 +254,7 @@
       await cleanupRecorder();
 
       if (!captured.length) {
-        showToast("Awaaz record nahi hui — mic permission check karein");
+        showToast("No audio recorded — please check microphone permission");
         return null;
       }
 
@@ -346,7 +346,7 @@
     });
     if (!res.ok) throw new Error(`Audio HTTP ${res.status}`);
     const arr = await res.arrayBuffer();
-    if (!arr || arr.byteLength < 64) throw new Error("Audio file khali hai");
+    if (!arr || arr.byteLength < 64) throw new Error("Audio file is empty");
     audioBufferCache.set(absUrl, arr);
     return arr.slice(0);
   }
@@ -354,7 +354,7 @@
   async function togglePlayVoiceCard(card, btn) {
     const src = (btn.getAttribute("data-voice-src") || card.getAttribute("data-voice-src") || "").trim();
     if (!src) {
-      showToast("Yeh purana dummy voice note hai — naya voice record kar ke bhejein");
+      showToast("This is an expired sample voice note — record a new voice message");
       return;
     }
 
@@ -504,7 +504,7 @@
   async function openUserInfoSheet(chatId, fallback) {
     const auth = getAuthHeader();
     if (!auth) {
-      showToast("Login session nahi mila");
+      showToast("Login session not found");
       return;
     }
 
@@ -529,7 +529,7 @@
       renderProfileSheet({ loading: false, data });
     } catch (err) {
       console.error("[UserInfo]", err);
-      showToast("User info load nahi ho saki");
+      showToast("Could not load user info");
       renderProfileSheet({
         loading: false,
         data: { chat: { title: fallback.title, avatar: fallback.avatar, type: "private" }, user: null }

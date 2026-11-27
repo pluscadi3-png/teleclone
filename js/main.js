@@ -350,10 +350,10 @@
       const cmds = (chat.botCommands || []).map((c) => c.command).join(", ");
       els.previewDesc.textContent =
         `${chat.name} (${chat.username}) selected! Registered Bot Commands: ${cmds || "None"}. ` +
-        `Module 2 mein yahan poora interactive chat, /Menu commands, aur live @BotFather engine chalega.`;
+        `Interactive chat, /Menu commands, and live @BotFather features appear here.`;
     } else {
       els.previewDesc.textContent =
-        `${chat.name} (${chat.username}) selected! Module 2 mein yahan messaging bubbles, reactions, reply/quote, voice notes aur media attachments add honge.`;
+        `${chat.name} (${chat.username}) selected!`;
     }
   }
 
@@ -412,28 +412,28 @@
         showToast("Opened @BotFather");
         break;
       case "my-profile":
-        showToast("My Profile UI — Module 3/4 mein open hoga");
+        showToast("Opening My Profile...");
         break;
       case "wallet":
-        showToast("TON Wallet UI — Module 4 mein add hoga");
+        showToast("Wallet feature coming soon");
         break;
       case "new-group":
-        showToast("New Group creator — Module 3 mein add hoga");
+        showToast("Opening New Group...");
         break;
       case "new-channel":
-        showToast("New Channel creator — Module 3 mein add hoga");
+        showToast("Opening New Channel...");
         break;
       case "new-secret":
-        showToast("Secret Chat (E2E UI) — Module 3 mein add hoga");
+        showToast("Secret Chat coming soon");
         break;
       case "contacts":
-        showToast("Contacts list — Module 3 mein add hoga");
+        showToast("Opening Contacts...");
         break;
       case "calls":
-        showToast("Call history — Module 3 mein add hoga");
+        showToast("Opening Calls...");
         break;
       case "settings":
-        showToast("Full Settings Panel — Module 4 mein add hoga");
+        showToast("Opening Settings...");
         break;
       default:
         break;
@@ -518,7 +518,7 @@
       if (!story) return;
 
       if (story.isMine) {
-        showToast("Add Story viewer — Module 3 mein add hoga");
+        showToast("Opening Story Viewer...");
       } else {
         Store.markStorySeen(id);
         renderStories();

@@ -238,7 +238,7 @@
     }
 
     if (!targetRow) {
-      showToast("Original message is chat mein nahi mila");
+      showToast("Original message not found in this chat");
       return;
     }
 
@@ -550,13 +550,13 @@
 
     const st = getStoreObj();
     if (!st || typeof st.getState !== "function") {
-      showToast("Chats load nahi huin");
+      showToast("Failed to load chats");
       return;
     }
 
     const allChats = (st.getState().chats || []).slice();
     if (!allChats.length) {
-      showToast("Forward karne ke liye koi chat nahi mili");
+      showToast("No chats available to forward to");
       return;
     }
 
@@ -630,7 +630,7 @@
       });
 
       if (!filtered.length) {
-        listEl.innerHTML = `<div class="tc-fwd-empty">Koi chat nahi mili</div>`;
+        listEl.innerHTML = `<div class="tc-fwd-empty">No chats found</div>`;
         return;
       }
 
@@ -760,7 +760,7 @@
 
     // 3. Naya DM chat start karein (/api/chats/direct)
     if (!profile.userId) {
-      showToast("Is user ka account nahi mila");
+      showToast("User account not found");
       return;
     }
 
@@ -772,7 +772,7 @@
 
       const newChat = res.chat || res;
       const newChatId = newChat && newChat.id ? String(newChat.id) : null;
-      if (!newChatId) throw new Error("Chat create nahi ho saki");
+      if (!newChatId) throw new Error("Could not create chat");
 
       // Store mein ensure karein taake openChat() turant load kar le
       if (st && typeof st.getState === "function") {
@@ -796,7 +796,7 @@
         window.App.openChat(newChatId);
       }
     } catch (err) {
-      showToast(err.message || "Message start nahi ho saka");
+      showToast(err.message || "Could not start conversation");
     }
   }
 
@@ -897,7 +897,7 @@
       <div class="tc-fp-sheet">
         <button type="button" class="tc-fp-close" id="tcFpClose">${ICONS.close}</button>
         <div class="tc-fp-body" id="tcFpBody">
-          <div class="tc-fp-loading">Profile load ho rahi hai...</div>
+          <div class="tc-fp-loading">Loading profile...</div>
         </div>
       </div>
     `;

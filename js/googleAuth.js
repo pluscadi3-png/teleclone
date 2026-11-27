@@ -142,7 +142,7 @@
         }
       } else if (data.status === "error") {
         stopPolling();
-        const msg = data.detail || "Google sign-in fail ho gaya";
+        const msg = data.detail || "Google sign-in failed";
         showAuthError(msg);
         toast(msg);
       }
@@ -174,7 +174,7 @@
       attempts++;
       if (attempts > 150) {
         stopPolling();
-        showAuthError("Login timeout ho gaya — dobara try karein");
+        showAuthError("Login timed out — please try again");
         return;
       }
       checkPollOnce(sid);
@@ -244,10 +244,10 @@
       const username = (root.querySelector(`#${prefix}User`).value || "").trim().replace(/^@/, "");
 
       errEl.textContent = "";
-      if (!name) return (errEl.textContent = "Apna naam darj karein");
-      if (rawPhone.length < 7) return (errEl.textContent = "Sahi phone number darj karein");
+      if (!name) return (errEl.textContent = "Please enter your name");
+      if (rawPhone.length < 7) return (errEl.textContent = "Please enter a valid phone number");
       if (!pendingSetup || !pendingSetup.setupToken) {
-        errEl.textContent = "Session expire ho gaya — dobara Google se continue karein";
+        errEl.textContent = "Session expired — please continue with Google again";
         return;
       }
 
@@ -265,7 +265,7 @@
           })
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.detail || "Account create nahi ho saka");
+        if (!res.ok) throw new Error(data.detail || "Could not create account");
 
         pendingSetup = null;
         closeAddModal();
@@ -293,7 +293,7 @@
       screen.innerHTML = `
         <div class="tc-ga-card">
           <h2 class="tc-ga-title">Complete Your Profile</h2>
-          <p class="tc-ga-sub">Apna number aur username set karein — dubara login hamesha Google se hoga.</p>
+          <p class="tc-ga-sub">Set your phone number and username — you can always sign back in with Google.</p>
           ${buildProfileFormHtml("tcGAuth")}
           <button type="button" id="tcGAuthBack" class="tc-ga-ghost">Use another Google account</button>
         </div>
@@ -310,7 +310,7 @@
         <div class="tc-ga-card" style="text-align:center;">
           <div class="tc-ga-spinner"></div>
           <h2 class="tc-ga-title">Completing Google Sign-In...</h2>
-          <p class="tc-ga-sub">Browser mein apna Google account select karein — verify hote hi app khud open ho jayegi.</p>
+          <p class="tc-ga-sub">Select your Google account in the browser — the app will reopen automatically once verified.</p>
           <div id="tcGAuthErr" class="tc-ga-err"></div>
           <button type="button" id="tcGAuthCancel" class="tc-ga-ghost">Cancel</button>
         </div>
@@ -328,7 +328,7 @@
           <svg viewBox="0 0 24 24" width="38" height="38" fill="#fff"><path d="M21.9 3.6a1.1 1.1 0 0 0-1.15-.17L2.6 10.6a1.1 1.1 0 0 0 .06 2.07l4.65 1.55 1.8 5.47a1.1 1.1 0 0 0 1.82.43l2.63-2.55 4.68 3.43a1.1 1.1 0 0 0 1.72-.66l2.6-15.6a1.1 1.1 0 0 0-.66-1.14zM9.7 13.7l8.2-5.4-6.4 6.7-.3 2.7-1.1-3.4-3.3-1.1 2.9.5z"/></svg>
         </div>
         <h2 class="tc-ga-title">Sign in to TeleClone</h2>
-        <p class="tc-ga-sub">Apne Google account se login karein taake aapki chats, profile aur contacts hamesha safe rahein.</p>
+        <p class="tc-ga-sub">Sign in with your Google account to keep your chats, profile, and contacts synced and secure.</p>
 
         <button type="button" id="tcGoogleLoginBtn" class="tc-ga-google-btn">
           ${GOOGLE_SVG}
@@ -358,7 +358,7 @@
     } catch (_) {}
 
     if (view === "start" && count >= MAX_ACCOUNTS) {
-      toast(`Maximum ${MAX_ACCOUNTS} accounts login kiye ja sakte hain`);
+      toast(`You can sign in to a maximum of ${MAX_ACCOUNTS} accounts`);
       return;
     }
 
@@ -389,7 +389,7 @@
         <div class="tc-st-modal-card" style="text-align:center;">
           <div class="tc-ga-spinner"></div>
           <h3 style="margin:0 0 8px;">Select Google Account</h3>
-          <p class="tc-st-modal-desc">Browser mein apna doosra Google account select karein.</p>
+          <p class="tc-st-modal-desc">Select another Google account in your browser.</p>
           <div id="tcAddGErr" class="tc-ga-err"></div>
           <button type="button" class="tc-ga-ghost" id="tcAddGCancel">Cancel</button>
         </div>
@@ -405,7 +405,7 @@
             <h3>Add Account (${count}/${MAX_ACCOUNTS})</h3>
             <button type="button" class="tc-st-circle-btn" id="tcAddGClose">✕</button>
           </div>
-          <p class="tc-st-modal-desc">Naya Google account add karein — aapke purane accounts login rahenge.</p>
+          <p class="tc-st-modal-desc">Add another Google account — your existing accounts will stay signed in.</p>
           <button type="button" id="tcAddGBtn" class="tc-ga-google-btn" style="margin-top:6px;">
             ${GOOGLE_SVG}
             <span>Continue with Google</span>

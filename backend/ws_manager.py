@@ -75,7 +75,7 @@ class ConnectionManager:
                 await self.send_to_user(uid, event)
 
     async def broadcast_presence(self, user_id: int, online: bool, last_seen: int):
-        """Sirf un online users ko notify karein jo is user ke sath kisi chat mein hain."""
+        """Notifies only online users who share a chat with this user."""
         conn = get_conn()
         try:
             rows = conn.execute(

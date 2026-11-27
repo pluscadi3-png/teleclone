@@ -964,7 +964,7 @@
       const btn = $("live-story-publish");
       const text = ($("live-story-text").value || "").trim();
       const file = $("live-story-file").files?.[0] || null;
-      if (!text && !file) return window.App && window.App.showToast("Photo select karein ya kuch text likhein");
+      if (!text && !file) return window.App && window.App.showToast("Please select a photo or enter some text");
 
       btn.disabled = true;
       btn.textContent = "Publishing...";
@@ -1134,7 +1134,7 @@
       </div>
       <div id="live-dm-results" style="max-height:260px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;">
         <div style="font-size:13px;color:var(--text-secondary);text-align:center;padding:16px;">
-          Kisi bhi user ka naam ya @username type karein.
+          Type a user's name or @username to search.
         </div>
       </div>
     `;
@@ -1149,7 +1149,7 @@
       clearTimeout(timer);
       const q = input.value.trim();
       if (q.length < 1) {
-        resultsBox.innerHTML = `<div style="font-size:13px;color:var(--text-secondary);text-align:center;padding:16px;">Kisi bhi user ka naam ya @username type karein.</div>`;
+        resultsBox.innerHTML = `<div style="font-size:13px;color:var(--text-secondary);text-align:center;padding:16px;">Type a user's name or @username to search.</div>`;
         return;
       }
       timer = setTimeout(async () => {
@@ -1157,7 +1157,7 @@
           const res = await api(`/api/search?q=${encodeURIComponent(q)}`);
           const users = res.users || [];
           if (users.length === 0) {
-            resultsBox.innerHTML = `<div style="font-size:13px;color:var(--text-secondary);text-align:center;padding:16px;">Koi user nahi mila.</div>`;
+            resultsBox.innerHTML = `<div style="font-size:13px;color:var(--text-secondary);text-align:center;padding:16px;">No users found.</div>`;
             return;
           }
           resultsBox.innerHTML = users
@@ -1252,7 +1252,7 @@
 
     const renderCandidates = (list) => {
       if (!list.length) {
-        candBox.innerHTML = `<div style="font-size:12.5px;color:var(--text-secondary);padding:10px;text-align:center;">Upar @username search kar ke members add karein (ya akelay group banayein).</div>`;
+        candBox.innerHTML = `<div style="font-size:12.5px;color:var(--text-secondary);padding:10px;text-align:center;">Search @username above to add members (optional).</div>`;
         return;
       }
       candBox.innerHTML = list
@@ -1314,7 +1314,7 @@
 
     $("live-grp-create").addEventListener("click", async () => {
       const name = $("live-grp-name").value.trim();
-      if (!name) return window.App && window.App.showToast("Group ka naam likhein");
+      if (!name) return window.App && window.App.showToast("Please enter a group name");
       try {
         const res = await api("/api/chats/group", {
           method: "POST",
@@ -1362,7 +1362,7 @@
 
     $("live-ch-create").addEventListener("click", async () => {
       const name = $("live-ch-name").value.trim();
-      if (!name) return window.App && window.App.showToast("Channel ka naam likhein");
+      if (!name) return window.App && window.App.showToast("Please enter a channel name");
       try {
         const res = await api("/api/chats/channel", {
           method: "POST",

@@ -927,7 +927,7 @@
   async function sendStagedFileNow() {
     if (!stagedFile || isSendingStagedFile) return;
     const activeChatId = window.Store?.getState()?.activeChatId;
-    if (!activeChatId) return toast("Pehle koi chat open karein");
+    if (!activeChatId) return toast("Please open a chat first");
 
     const token = localStorage.getItem(JWT_KEY) || "";
     const fileToUpload = stagedFile;

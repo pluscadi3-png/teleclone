@@ -270,7 +270,7 @@
       ${
         visiblePosts.length === 0
           ? `<div class="profile-post-empty">
-               <div>${profileSubTab === "posts" ? "Abhi koi post nahi hai." : "Abhi koi archived post nahi hai."}</div>
+               <div>${profileSubTab === "posts" ? "No posts yet." : "No archived posts yet."}</div>
                ${
                  profileSubTab === "posts"
                    ? `<button type="button" id="prof-empty-add-post" class="primary-btn" style="width:auto;padding:8px 18px;">➕ Add First Post</button>`
@@ -453,7 +453,7 @@
       const btn = $("new-post-submit");
       const caption = ($("new-post-caption").value || "").trim();
       const file = $("new-post-file").files?.[0] || null;
-      if (!caption && !file) return toast("Photo select karein ya kuch text likhein");
+      if (!caption && !file) return toast("Please select a photo or enter some text");
 
       btn.disabled = true;
       btn.textContent = "Publishing...";
@@ -566,7 +566,7 @@
         ${
           list.length === 0
             ? `<div style="text-align:center;color:var(--text-secondary);padding:28px 12px;font-size:13.5px;">
-                 Koi contact nahi mila.<br/>Upar <b>➕ Add Contact</b> dabaa kar kisi bhi user ka <b>@username</b> ya phone add karein.
+                 No contacts found.<br/>Tap <b>➕ Add Contact</b> above to add a user by <b>@username</b> or phone number.
                </div>`
             : list
                 .map(
@@ -621,7 +621,7 @@
     $("add-ct-submit").onclick = async () => {
       const query = $("add-ct-query").value.trim();
       const customName = $("add-ct-custom").value.trim();
-      if (!query) return toast("@username ya phone number likhein");
+      if (!query) return toast("Enter a @username or phone number");
       try {
         await api("/api/contacts", { method: "POST", body: { query, customName } });
         modal.classList.add("hidden");

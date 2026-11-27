@@ -111,7 +111,7 @@ def list_contacts(user: dict = Depends(get_current_user)):
 def add_contact(body: AddContactReq, user: dict = Depends(get_current_user)):
     raw = (body.query or "").strip()
     if not raw:
-        raise HTTPException(status_code=400, detail="@username ya phone number likhein")
+        raise HTTPException(status_code=400, detail="Please enter a @username or phone number")
 
     clean_user = raw.lstrip("@")
     conn = get_conn()
@@ -126,9 +126,9 @@ def add_contact(body: AddContactReq, user: dict = Depends(get_current_user)):
         ).fetchone()
 
         if not target:
-            raise HTTPException(status_code=404, detail="Is @username ya phone par koi TeleClone account nahi mila")
+            raise HTTPException(status_code=404, detail="No TeleClone account found for this @username or phone number")
         if target["id"] == user["id"]:
-            raise HTTPException(status_code=400, detail="Aap khud ko contact mein add nahi kar saktay")
+            raise HTTPException(status_code=400, detail="You cannot add yourself as a contact")
 
         custom = (body.customName or "").strip()[:64]
         conn.execute(
@@ -297,7 +297,7 @@ def create_profile_post(body: CreatePostReq, user: dict = Depends(get_current_us
     caption = (body.caption or "").strip()[:500]
     media_url = (body.mediaUrl or "").strip()
     if not caption and not media_url:
-        raise HTTPException(status_code=400, detail="Post ke liye photo ya text zaroori hai")
+        raise HTTPException(status_code=400, detail="A photo or text is required to create a post")
 
     now = int(time.time())
     conn = get_conn()
@@ -327,7 +327,7 @@ def toggle_archive_post(post_id: int, body: ArchivePostReq, user: dict = Depends
         )
         conn.commit()
         if cur.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Post nahi mili")
+            raise HTTPException(status_code=404, detail="Post not found")
         return {"ok": True, "archived": body.archived}
     finally:
         conn.close()
@@ -343,7 +343,7 @@ def delete_profile_post(post_id: int, user: dict = Depends(get_current_user)):
         )
         conn.commit()
         if cur.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Post nahi mili")
+            raise HTTPException(status_code=404, detail="Post not found")
         return {"ok": True}
     finally:
         conn.close()

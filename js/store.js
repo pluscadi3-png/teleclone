@@ -97,7 +97,7 @@
           {
             id: "m_bf_1",
             sender: "them",
-            text: "Welcome to BotFather! Main aapka naya bot aur API token bana sakta hoon. Shuru karne ke liye /newbot bhejein.",
+            text: "Welcome to BotFather! I can help you create a new bot and API token. Send /newbot to get started.",
             time: "7:30 PM",
             status: "read"
           }
@@ -147,7 +147,7 @@
         muted: false,
         archived: false,
         unreadCount: 3,
-        lastMessage: "UI ka Module 1 ready ho gaya kya?",
+        lastMessage: "Hey, how is the app coming along?",
         lastSender: "",
         lastTime: "7:15 PM",
         lastTimestamp: 1763820900000,
@@ -155,7 +155,7 @@
           {
             id: "m_hk_1",
             sender: "them",
-            text: "Salam! UI ka Module 1 ready ho gaya kya?",
+            text: "Hey! How is the app coming along?",
             time: "7:15 PM",
             status: "read"
           }
@@ -212,7 +212,7 @@
         muted: false,
         archived: false,
         unreadCount: 5,
-        lastMessage: "Backend mein WebSockets aur Webhook engine lagayenge.",
+        lastMessage: "We are adding real-time WebSockets and webhook support.",
         lastSender: "Zain",
         lastTime: "4:10 PM",
         lastTimestamp: 1763809800000,
@@ -221,7 +221,7 @@
             id: "m_dg_1",
             sender: "them",
             senderName: "Zain",
-            text: "Backend mein WebSockets aur Webhook engine lagayenge.",
+            text: "We are adding real-time WebSockets and webhook support.",
             time: "4:10 PM",
             status: "read"
           }

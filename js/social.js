@@ -15,7 +15,7 @@
 
   const DEFAULT_STORY_CONTENT = {
     st_2: { text: "🤖 Create unlimited bots & API tokens right inside TeleClone with /newbot!", time: "25m ago", bg: STORY_GRADIENTS[0] },
-    st_3: { text: "🔥 TeleClone UI Module 3 live chal raha hai! Next stop: Full Settings & Backend.", time: "1h ago", bg: STORY_GRADIENTS[2] },
+    st_3: { text: "🔥 TeleClone Stories are now live!", time: "1h ago", bg: STORY_GRADIENTS[2] },
     st_4: { text: "💻 Tip: You can now add your custom @bots directly into any Group and assign Admin rights!", time: "2h ago", bg: STORY_GRADIENTS[1] },
     st_5: { text: "📢 Tech News: WebSockets + Webhook engine coming in Phase 2!", time: "4h ago", bg: STORY_GRADIENTS[4] },
     st_6: { text: "☕ Late night coding session...", time: "6h ago", bg: STORY_GRADIENTS[3] }

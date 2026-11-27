@@ -107,7 +107,7 @@
     // Step 1: Receive Bot Display Name
     if (bfSession.step === "await_name") {
       if (trimmed.length < 2) {
-        sendBotReply(chatId, "Name bohot chhota hai. Kam az kam 2 characters ka naam likhein.");
+        sendBotReply(chatId, "Name is too short. Please enter at least 2 characters.");
         return;
       }
       bfSession.tempName = trimmed;
@@ -127,7 +127,7 @@
       if (!valid) {
         sendBotReply(
           chatId,
-          "❌ Invalid username. Sirf letters, numbers, aur underscore use karein aur end mein `bot` hona zaroori hai (e.g. `NewsAlertBot`)."
+          "❌ Invalid username. Use only letters, numbers, and underscores, and it must end with `bot` (e.g. `NewsAlertBot`)."
         );
         return;
       }
@@ -136,7 +136,7 @@
         (c) => (c.username || "").toLowerCase() === ("@" + clean).toLowerCase()
       );
       if (exists) {
-        sendBotReply(chatId, "Sorry, yeh username pehle se lia ja chuka hai. Koi aur username try karein.");
+        sendBotReply(chatId, "Sorry, this username is already taken. Please try another username.");
         return;
       }
 
@@ -154,7 +154,7 @@
         `✅ Done! Congratulations on your new bot **${newBot.name}** (${newBot.username}).\n\n` +
           `Use this token to access the HTTP Bot API (tap token to copy):\n` +
           `\`${token}\`\n\n` +
-          `Aapka naya bot sidebar mein add ho chuka hai. Neeche button daba kar foran test karein!`,
+          `Your new bot has been added to the sidebar. Tap the button below to test it right away!`,
         {
           inlineKeyboard: [
             [{ text: `💬 Open ${newBot.username}`, callback_data: `bf:open:${newBot.id}` }],
@@ -204,7 +204,7 @@
       sendBotReply(
         chatId,
         "👋 Welcome to **Media Lobby Bot**!\n" +
-          "Neeche **Inline Buttons** aur **Custom Reply Keyboard** dono live test karein:",
+          "Test both **Inline Buttons** and **Custom Reply Keyboard** live below:",
         {
           inlineKeyboard: [
             [
@@ -277,7 +277,7 @@
         chat.id,
         `🤖 Hello! I am **${chat.name}** (${chat.username}).\n` +
           `Status: **Online (Local Bot Engine)**\n\n` +
-          `Jab Phase 2 mein backend connect hoga, aap mere token se Python/JS webhook chala sakenge.`,
+          `Once connected to the backend, you can run a Python or JS webhook using my token.`,
         {
           inlineKeyboard: [
             [
@@ -318,7 +318,7 @@
     );
     sendBotReply(
       chat.id,
-      `⚡ **Webhook Event Preview:**\n\`${payload}\`\n\n(Phase 2 mein yeh JSON seedha aapke bot server par POST hoga.)`
+      `⚡ **Webhook Event Preview:**\n\`${payload}\`\n\n(This JSON payload will be POSTed directly to your bot server.)`
     );
   }
 
@@ -329,12 +329,12 @@
     const replies =
       chat.type === "group"
         ? [
-            { senderName: "Zain", text: "Zabardast! UI bilkul asli Telegram jaisi lag rahi hai 🔥" },
-            { senderName: "Ali", text: "Agreed, ab Module 3 aur 4 ke baad backend jor denge." }
+            { senderName: "Zain", text: "Awesome! The UI feels super clean and smooth 🔥" },
+            { senderName: "Ali", text: "Agreed, everything is coming together nicely." }
           ]
         : [
             { senderName: "", text: `Got it: "${text.slice(0, 40)}" 👍` },
-            { senderName: "", text: "Nice! @BotFather wala feature try kiya?" }
+            { senderName: "", text: "Nice! Did you try the @BotFather feature?" }
           ];
 
     const pick = replies[Math.floor(Math.random() * replies.length)];
@@ -421,7 +421,7 @@
       Store.editMessage(
         chatId,
         msgId,
-        "🎉 **Joined!** Aap ab Active Lobby ke member hain aur live media broadcasts receive kar saktay hain.",
+        "🎉 **Joined!** You are now a member of the Active Lobby and can receive live media broadcasts.",
         [
           [
             { text: "✅ Joined", callback_data: "lobby:refresh" },

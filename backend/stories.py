@@ -97,7 +97,7 @@ async def create_story(body: CreateStoryReq, user: dict = Depends(get_current_us
     text = (body.text or "").strip()[:300]
     media_url = (body.mediaUrl or "").strip()
     if not text and not media_url:
-        raise HTTPException(status_code=400, detail="Story ke liye text ya photo dein")
+        raise HTTPException(status_code=400, detail="Please provide text or a photo for your story")
 
     now = int(time.time())
     conn = get_conn()
@@ -128,7 +128,7 @@ def view_story(story_id: int, user: dict = Depends(get_current_user)):
     try:
         row = conn.execute("SELECT views_json FROM stories WHERE id = ?", (story_id,)).fetchone()
         if not row:
-            raise HTTPException(status_code=404, detail="Story nahi mili")
+            raise HTTPException(status_code=404, detail="Story not found")
         views = safe_list(row["views_json"])
         if user["id"] not in views:
             views.append(user["id"])
@@ -145,7 +145,7 @@ def toggle_story_like(story_id: int, user: dict = Depends(get_current_user)):
     try:
         row = conn.execute("SELECT likes_json FROM stories WHERE id = ?", (story_id,)).fetchone()
         if not row:
-            raise HTTPException(status_code=404, detail="Story nahi mili")
+            raise HTTPException(status_code=404, detail="Story not found")
         likes = safe_list(row["likes_json"])
         if user["id"] in likes:
             likes.remove(user["id"])
@@ -167,7 +167,7 @@ async def delete_story(story_id: int, user: dict = Depends(get_current_user)):
         cur = conn.execute("DELETE FROM stories WHERE id = ? AND user_id = ?", (story_id, user["id"]))
         conn.commit()
         if cur.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Story nahi mili")
+            raise HTTPException(status_code=404, detail="Story not found")
     finally:
         conn.close()
 

@@ -116,7 +116,7 @@
           showPreviewStage(compressed);
         } catch (err) {
           console.error("[NativeCamera]", err);
-          showToast("Photo read nahi ho saki");
+          showToast("Could not read photo");
         }
       });
       document.body.appendChild(input);
@@ -204,7 +204,7 @@
   // ===== 4. Fullscreen Live Camera Modal + Preview + Send =====
   function openCameraFlow() {
     if (!getCurrentChatId()) {
-      showToast("Pehle koi chat open karein");
+      showToast("Please open a chat first");
       return;
     }
     facingMode = "environment";
@@ -231,7 +231,7 @@
         <img id="tcCamPreview" class="hidden" alt="Preview" />
         <div id="tcCamFallback" class="tc-cam-fallback hidden">
           <div class="tc-cam-fb-icon">${ICONS.camera}</div>
-          <p id="tcCamFallbackText">In-app camera permission allow nahi hai. Phone Camera se photo click karein:</p>
+          <p id="tcCamFallbackText">In-app camera permission is not granted. Capture a photo using your phone camera:</p>
           <button type="button" class="tc-cam-fb-btn" id="tcCamFallbackBtn">Open Phone Camera</button>
         </div>
       </div>
@@ -323,7 +323,7 @@
     showLiveStage();
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      showCameraFallback("Direct viewfinder available nahi hai. Neeche se Phone Camera kholein:");
+      showCameraFallback("Direct viewfinder is not available. Open Phone Camera below:");
       return;
     }
 
@@ -345,7 +345,7 @@
         cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       } catch (err2) {
         console.warn("[CameraStream]", err2);
-        showCameraFallback("Direct camera blocked hai — Phone Camera button dabaa kar photo click karein:");
+        showCameraFallback("Direct camera is blocked — tap Phone Camera below to take a photo:");
         return;
       }
     }
@@ -385,7 +385,7 @@
   function captureFromVideo() {
     const video = document.getElementById("tcCamVideo");
     if (!video || !video.videoWidth || !video.videoHeight) {
-      showToast("Camera abhi ready ho raha hai...");
+      showToast("Camera is getting ready...");
       return;
     }
 
@@ -412,7 +412,7 @@
     canvas.toBlob(
       (blob) => {
         if (!blob) {
-          showToast("Photo capture fail ho gayi");
+          showToast("Failed to capture photo");
           return;
         }
         stopCameraStream();
@@ -427,7 +427,7 @@
     if (isSending || !capturedBlob) return;
     const chatId = getCurrentChatId();
     if (!chatId) {
-      showToast("Active chat nahi mili");
+      showToast("No active chat found");
       return;
     }
 
@@ -437,7 +437,7 @@
     const caption = captionInput ? captionInput.value.trim() : "";
 
     if (sendBtn) sendBtn.disabled = true;
-    showToast("Photo upload ho rahi hai...");
+    showToast("Uploading photo...");
 
     try {
       const auth = getAuthHeader();

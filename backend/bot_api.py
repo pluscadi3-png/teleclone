@@ -250,7 +250,7 @@ async def handle_botfather_message(bf_id: int, chat_id: int, user: dict, text: s
     # Step 1: Display Name
     if sess.get("step") == "await_name":
         if len(trimmed) < 2:
-            await post_message_as_bot(bf_id, chat_id, "Name kam az kam 2 characters ka hona chahiye.")
+            await post_message_as_bot(bf_id, chat_id, "Name must be at least 2 characters long.")
             return
         _bf_sessions[uid] = {"step": "await_username", "name": trimmed[:64]}
         await post_message_as_bot(
@@ -268,7 +268,7 @@ async def handle_botfather_message(bf_id: int, chat_id: int, user: dict, text: s
             await post_message_as_bot(
                 bf_id,
                 chat_id,
-                "❌ Invalid username. Sirf letters/numbers/_ use karein aur end mein `bot` hona zaroori hai.",
+                "❌ Invalid username. Use only letters, numbers, and underscores, and it must end with `bot`.",
             )
             return
 
@@ -279,7 +279,7 @@ async def handle_botfather_message(bf_id: int, chat_id: int, user: dict, text: s
                 "SELECT id FROM users WHERE LOWER(username) = LOWER(?)", (clean,)
             ).fetchone()
             if taken:
-                await post_message_as_bot(bf_id, chat_id, "Yeh username pehle se lia ja chuka hai. Koi aur try karein.")
+                await post_message_as_bot(bf_id, chat_id, "This username is already taken. Please try another one.")
                 return
 
             cur = conn.cursor()
@@ -352,7 +352,7 @@ async def handle_botfather_message(bf_id: int, chat_id: int, user: dict, text: s
         bot_id = sess["bot_id"]
         url = "" if lower == "clear" else trimmed
         if url and not (url.startswith("http://") or url.startswith("https://")):
-            await post_message_as_bot(bf_id, chat_id, "Valid `https://` URL bhejein (ya `clear` likh kar webhook hatayein).")
+            await post_message_as_bot(bf_id, chat_id, "Please send a valid `https://` URL (or type `clear` to remove the webhook).")
             return
 
         conn = get_conn()
@@ -472,7 +472,7 @@ async def handle_botfather_callback(bf_id: int, chat_id: int, msg_id: int, user:
         await post_message_as_bot(
             bf_id,
             chat_id,
-            "Apne bot server ka `https://...` Webhook URL bhejein (ya `clear` likhein Long Polling par switch karne ke liye).",
+            "Send your bot server's `https://...` Webhook URL (or type `clear` to switch to Long Polling).",
         )
         return "Send Webhook URL"
 
@@ -481,7 +481,7 @@ async def handle_botfather_callback(bf_id: int, chat_id: int, msg_id: int, user:
 
 # ==================== HOOKS CALLED BY chats.py ====================
 async def on_user_message_hook(chat_id: int, msg_id: int, user: dict, text: str):
-    """Har message par check karta hai ke chat mein @BotFather ya koi aur custom Bot maujood hai."""
+    """Checks each message to see if @BotFather or a custom bot is in the chat."""
     conn = get_conn()
     try:
         bots = conn.execute(
@@ -670,7 +670,7 @@ async def bot_get_updates(
     limit: int = Query(default=50, ge=1, le=100),
     timeout: int = Query(default=0, ge=0, le=25),
 ):
-    """Telegram-style Long Polling endpoint (Python/JS bots baghair webhook ke bhi chal saktay hain)."""
+    """Telegram-style Long Polling endpoint for bots without webhooks."""
     bot = get_bot_by_token(token)
     deadline = time.time() + timeout
 

@@ -187,7 +187,7 @@
     } else if (list.length < MAX_ACCOUNTS) {
       list.push(entry);
     } else {
-      throw new Error(`Maximum ${MAX_ACCOUNTS} accounts login kiye ja sakte hain`);
+      throw new Error(`Maximum of ${MAX_ACCOUNTS} accounts allowed`);
     }
     setSavedAccounts(list);
     return list;
@@ -447,7 +447,7 @@
     input.onchange = async () => {
       const file = input.files && input.files[0];
       if (!file) return;
-      toast("Photo upload ho rahi hai...");
+      toast("Uploading photo...");
       try {
         // 1. Pehle /api/upload par bhejein
         const fd = new FormData();
@@ -482,7 +482,7 @@
         renderSettingsView();
         if (window.App && typeof window.App.renderAll === "function") window.App.renderAll();
       } catch (err) {
-        toast(err.message || "Photo update fail ho gayi");
+        toast(err.message || "Failed to update photo");
       }
     };
     input.click();
@@ -492,7 +492,7 @@
   function openAddAccountModal() {
     const saved = getSavedAccounts();
     if (saved.length >= MAX_ACCOUNTS) {
-      toast(`Maximum ${MAX_ACCOUNTS} accounts allowed. Pehle koi 1 account log out karein.`);
+      toast(`Maximum ${MAX_ACCOUNTS} accounts allowed. Please log out of one account first.`);
       return;
     }
 
@@ -520,13 +520,13 @@
           ${
             step === "phone"
               ? `
-                <p class="tc-st-modal-desc">Apna doosra mobile number darj karein — aapke purane accounts login rahenge.</p>
+                <p class="tc-st-modal-desc">Enter another phone number — your existing accounts will stay signed in.</p>
                 <input id="tcAddAccPhone" class="tc-st-input" type="tel" placeholder="+92 300 1234567" value="${esc(pendingPhone)}" autocomplete="tel" />
                 <div class="tc-st-modal-err" id="tcAddAccErr"></div>
                 <button type="button" class="tc-st-primary-btn" id="tcAddAccSendOtp">Continue</button>
               `
               : `
-                <p class="tc-st-modal-desc">OTP code verify karein (${esc(pendingPhone)})</p>
+                <p class="tc-st-modal-desc">Verify OTP code (${esc(pendingPhone)})</p>
                 ${demoOtpCode ? `<div class="tc-st-otp-hint">Verification Code: <strong>${esc(demoOtpCode)}</strong></div>` : ""}
                 <input id="tcAddAccOtp" class="tc-st-input" type="text" inputmode="numeric" maxlength="6" placeholder="5-digit OTP code" value="${esc(demoOtpCode)}" />
                 ${
@@ -552,7 +552,7 @@
         btn.onclick = async () => {
           const ph = (backdrop.querySelector("#tcAddAccPhone").value || "").trim();
           if (ph.length < 7) {
-            errEl.textContent = "Sahi mobile number darj karein";
+            errEl.textContent = "Please enter a valid phone number";
             return;
           }
           btn.disabled = true;
@@ -584,7 +584,7 @@
           const username = userInput ? userInput.value.trim() : null;
 
           if (!code) {
-            errEl.textContent = "OTP code darj karein";
+            errEl.textContent = "Please enter the OTP code";
             return;
           }
           btn.disabled = true;
@@ -994,7 +994,7 @@
         const username = panel.querySelector("#tcAccUsername").value.trim().replace(/^@/, "");
         const bio = panel.querySelector("#tcAccBio").value.trim();
         if (!name) {
-          toast("Name khali nahi ho sakta");
+          toast("Name cannot be empty");
           return;
         }
         btn.disabled = true;
@@ -1018,7 +1018,7 @@
           activeSubPage = null;
           renderSettingsView();
         } catch (err) {
-          toast(err.message || "Update fail ho gaya");
+          toast(err.message || "Update failed");
           btn.disabled = false;
           btn.textContent = "Save Changes";
         }
@@ -1079,7 +1079,7 @@
             </div>
             <input type="range" id="tcFontSlider" class="tc-st-slider" min="12" max="20" step="1" value="${p.fontSize}" />
             <div class="tc-st-preview-bubble" id="tcFontPreview" style="font-size:${p.fontSize}px;">
-              Assalam-o-Alaikum! Yeh live message preview hai.
+              Hello! This is a live message preview.
             </div>
 
             <label class="tc-st-toggle-row">
@@ -1128,7 +1128,7 @@
               toast("Custom wallpaper set!");
               renderSettingsView();
             } catch (_) {
-              toast("Photo zyada badi hai, choti photo select karein");
+              toast("Photo is too large, please select a smaller image");
             }
           };
           img.src = url;
@@ -1165,8 +1165,8 @@
               <span>Passcode Lock</span>
               <span class="tc-st-active-pill" style="background:${locked ? "rgba(73,198,92,0.2)" : "rgba(255,255,255,0.08)"};color:${locked ? "#7bc65b" : "#94a3b8"};">${locked ? "ON" : "OFF"}</span>
             </div>
-            <p class="tc-st-modal-desc">App open karne par 4-digit PIN passcode maanga jayega.</p>
-            <input id="tcPinInput" class="tc-st-input" type="password" inputmode="numeric" maxlength="4" placeholder="${locked ? "Naya 4-digit PIN likhein" : "4-digit PIN set karein (e.g. 1234)"}" />
+            <p class="tc-st-modal-desc">A 4-digit PIN passcode will be required when opening the app.</p>
+            <input id="tcPinInput" class="tc-st-input" type="password" inputmode="numeric" maxlength="4" placeholder="${locked ? "Enter new 4-digit PIN" : "Set 4-digit PIN"}" />
             <div style="display:flex;gap:8px;">
               <button type="button" class="tc-st-primary-btn" id="tcPinSaveBtn" style="flex:1;">${locked ? "Change Passcode" : "Enable Passcode"}</button>
               ${locked ? `<button type="button" class="tc-st-danger-sm" id="tcPinDisableBtn">Disable</button>` : ""}
@@ -1189,10 +1189,10 @@
             <div id="tcPrivPhoneHint" style="font-size:12px;color:#8e94a5;padding:0 0 12px;border-bottom:1px solid rgba(255,255,255,0.06);">
               ${
                 p.phonePrivacy === "nobody"
-                  ? "Koi bhi user aapka phone number nahi dekh sakega."
+                  ? "Nobody will be able to see your phone number."
                   : p.phonePrivacy === "contacts"
-                  ? "Sirf aapke saved contacts aapka phone number dekh sakte hain."
-                  : "Har koi aapka phone number dekh sakta hai."
+                  ? "Only your saved contacts can see your phone number."
+                  : "Everyone can see your phone number."
               }
             </div>
 
@@ -1248,7 +1248,7 @@
       panel.querySelector("#tcPinSaveBtn").onclick = () => {
         const pin = (panel.querySelector("#tcPinInput").value || "").trim();
         if (!/^\d{4}$/.test(pin)) {
-          toast("Exact 4 numbers ka passcode likhein");
+          toast("Please enter an exact 4-digit passcode");
           return;
         }
         localStorage.setItem(PASSCODE_KEY, hashPin(pin));
@@ -1272,10 +1272,10 @@
      if (hint) {
        hint.textContent =
          val === "nobody"
-           ? "Koi bhi user aapka phone number nahi dekh sakega."
+           ? "Nobody will be able to see your phone number."
            : val === "contacts"
-           ? "Sirf aapke saved contacts aapka phone number dekh sakte hain."
-           : "Har koi aapka phone number dekh sakta hai.";
+           ? "Only your saved contacts can see your phone number."
+           : "Everyone can see your phone number.";
      }
      try {
        await apiReq("/api/auth/privacy", {
@@ -1284,7 +1284,7 @@
        });
        toast(val === "nobody" ? "Phone number hidden from everyone" : "Phone number privacy updated");
      } catch (err) {
-       toast(err.message || "Server par save nahi ho saka");
+       toast(err.message || "Could not save to server");
      }
    };
 
@@ -1423,7 +1423,7 @@
         <div class="tc-st-root">
           ${renderSubHeader("Chat Folders")}
           <div class="tc-st-card tc-st-form-card">
-            <p class="tc-st-modal-desc">Apni Chats screen par jo folder tabs dikhani hain unhein ON rakhein:</p>
+            <p class="tc-st-modal-desc">Toggle the folder tabs you want to show on your Chats screen:</p>
             ${folders
               .map(
                 (f) => `
@@ -1451,7 +1451,7 @@
         <div class="tc-st-root">
           ${renderSubHeader("Power Saving")}
           <div class="tc-st-card tc-st-form-card">
-            <p class="tc-st-modal-desc">Power Saving Mode heavy transitions, blur effects aur background animations band kar ke battery bachata hai.</p>
+            <p class="tc-st-modal-desc">Power Saving Mode reduces battery usage by disabling heavy transitions, blur effects, and background animations.</p>
             <label class="tc-st-toggle-row">
               <span>Enable Power Saving Mode</span>
               <input type="checkbox" id="tcPowerToggle" ${p.powerSaving ? "checked" : ""} />

@@ -183,13 +183,13 @@
     input.onchange = async () => {
       const file = input.files && input.files[0];
       if (!file) return;
-      toast("Photo upload ho rahi hai...");
+      toast("Uploading photo...");
       try {
         const fd = new FormData();
         fd.append("file", file, file.name || "avatar.jpg");
         const up = await apiReq("/api/upload", { method: "POST", body: fd });
         const photoUrl = (up.attachment && up.attachment.src) || up.src || up.url || "";
-        if (!photoUrl) throw new Error("Upload URL nahi mili");
+        if (!photoUrl) throw new Error("Upload URL not returned");
 
         const res = await apiReq("/api/profile/photo", {
           method: "PUT",
@@ -207,7 +207,7 @@
         renderProfileView();
         if (window.App && typeof window.App.renderAll === "function") window.App.renderAll();
       } catch (err) {
-        toast(err.message || "Photo upload fail ho gayi");
+        toast(err.message || "Failed to upload photo");
       }
     };
     input.click();
@@ -227,7 +227,7 @@
       renderProfileView();
       if (window.App && typeof window.App.renderAll === "function") window.App.renderAll();
     } catch (err) {
-      toast(err.message || "Photo remove nahi ho saki");
+      toast(err.message || "Could not remove photo");
     }
   }
 
@@ -273,7 +273,7 @@
       const bio = backdrop.querySelector("#tcPfEditBio").value.trim();
 
       if (!name) {
-        errEl.textContent = "Name zaroori hai";
+        errEl.textContent = "Name is required";
         return;
       }
       btn.disabled = true;
@@ -473,7 +473,7 @@
       const btn = backdrop.querySelector("#tcPostSubmit");
       const caption = capEl.value.trim();
       if (!selectedFile && !caption) {
-        errEl.textContent = "Photo/video select karein ya koi text likhein";
+        errEl.textContent = "Please select a photo/video or enter some text";
         return;
       }
 
@@ -488,7 +488,7 @@
           fd.append("file", selectedFile, selectedFile.name || "post_media");
           const up = await apiReq("/api/upload", { method: "POST", body: fd });
           mediaUrl = (up.attachment && up.attachment.src) || up.src || up.url || "";
-          if (!mediaUrl) throw new Error("Media upload fail ho gaya");
+          if (!mediaUrl) throw new Error("Media upload failed");
         }
 
         await apiReq("/api/profile/posts", {
@@ -502,7 +502,7 @@
         toast("Post published!");
         await fetchProfileAndPosts(true);
       } catch (err) {
-        errEl.textContent = err.message || "Post publish nahi ho saki";
+        errEl.textContent = err.message || "Could not publish post";
         btn.disabled = false;
         btn.textContent = "Publish Post";
       }

@@ -297,7 +297,7 @@
         window.App.openChat(cid);
       }
     } catch (err) {
-      toast(err.message || "Chat open nahi ho saki");
+      toast(err.message || "Could not open chat");
     }
   }
 
@@ -352,7 +352,7 @@
   async function handleAddContact(state) {
     const query = state.username ? `@${state.username}` : state.phone;
     if (!query) {
-      toast("Contact add karne ke liye username ya number zaroori hai");
+      toast("A username or phone number is required to add a contact");
       return;
     }
     try {
@@ -362,7 +362,7 @@
       });
       toast(`${state.name} added to Contacts`);
     } catch (err) {
-      toast(err.message || "Contact add nahi ho saka");
+      toast(err.message || "Could not add contact");
     }
   }
 

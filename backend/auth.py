@@ -53,14 +53,14 @@ def normalize_phone(phone: str) -> str:
     if not cleaned.startswith("+") and len(cleaned) >= 10:
         cleaned = "+" + cleaned
     if len(cleaned) < 8 or len(cleaned) > 16:
-        raise HTTPException(status_code=400, detail="Valid phone number likhein (e.g. +923001234567)")
+        raise HTTPException(status_code=400, detail="Please enter a valid phone number (e.g. +923001234567)")
     return cleaned
 
 
 def clean_username(raw: str) -> str:
     u = re.sub(r"[^a-zA-Z0-9_]", "", (raw or "").strip().lstrip("@"))
     if len(u) < 4 or len(u) > 32:
-        raise HTTPException(status_code=400, detail="Username 4 se 32 characters (letters/numbers/_) ka hona chahiye")
+        raise HTTPException(status_code=400, detail="Username must be 4 to 32 characters (letters, numbers, or _)")
     return u
 
 
@@ -122,7 +122,7 @@ def get_current_user(authorization: Optional[str] = Header(default=None)) -> dic
 
 
 def setup_starter_chats(conn, user_id: int):
-    """Naye user ke liye sirf Saved Messages aur @BotFather chat create karta hai (zero fake data)."""
+    """Creates Saved Messages and @BotFather starter chats for a new user."""
     now = int(time.time())
     cur = conn.cursor()
 
@@ -180,7 +180,7 @@ def setup_starter_chats(conn, user_id: int):
                 bf_chat_id,
                 bf_id,
                 "Welcome to TeleClone! Main **@BotFather** hoon.\n"
-                "Apna naya real bot aur HTTP API Token banane ke liye `/newbot` bhejein.",
+                "Send `/newbot` to create your own bot and HTTP API token.",
                 now,
             ),
         )
@@ -268,7 +268,7 @@ def verify_otp(body: OtpVerifyRequest):
 
         taken = conn.execute("SELECT id FROM users WHERE LOWER(username) = LOWER(?)", (uname,)).fetchone()
         if taken:
-            raise HTTPException(status_code=409, detail="Yeh @username pehle se lia ja chuka hai")
+            raise HTTPException(status_code=409, detail="This @username is already taken")
 
         color = AVATAR_GRADIENTS[secrets.randbelow(len(AVATAR_GRADIENTS))]
         cur = conn.cursor()
@@ -379,7 +379,7 @@ def update_privacy_settings(body: PrivacyUpdateRequest, user: dict = Depends(get
                 (candidate, user["id"]),
             ).fetchone()
             if conflict:
-                raise HTTPException(status_code=409, detail="Yeh @username pehle se maujood hai")
+                raise HTTPException(status_code=409, detail="This @username is already taken")
             new_username = candidate
 
         conn.execute(
@@ -513,7 +513,7 @@ def google_auth_config():
 @router.get("/google/start")
 def google_auth_start(request: Request, sid: str = "", mode: str = "web", action: str = "login"):
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
-        raise HTTPException(status_code=503, detail="Railway Variables mein GOOGLE_CLIENT_ID aur GOOGLE_CLIENT_SECRET set karein")
+        raise HTTPException(status_code=503, detail="Google Sign-In is not configured on the server yet")
 
     clean_sid = re.sub(r"[^a-zA-Z0-9_-]", "", sid or "")[:64] or secrets.token_urlsafe(18)
     clean_mode = "app" if mode == "app" else "web"
@@ -560,7 +560,7 @@ def google_auth_callback(
         ensure_google_auth_schema(conn)
 
         if error or not code:
-            err_msg = error or "Google sign-in cancel ho gaya"
+            err_msg = error or "Google sign-in was cancelled"
             save_google_session(conn, sid, "error", {"detail": err_msg})
             if mode == "app":
                 return render_app_return_html(sid, action, "Sign-in Cancelled", err_msg, is_error=True)
@@ -588,7 +588,7 @@ def google_auth_callback(
 
         access_token = token_json.get("access_token", "")
         if not access_token:
-            raise ValueError("Google access token nahi mila")
+            raise ValueError("Failed to obtain Google access token")
 
         info_req = urllib.request.Request(
             "https://www.googleapis.com/oauth2/v3/userinfo",
@@ -603,7 +603,7 @@ def google_auth_callback(
         picture = str(profile.get("picture") or "").strip()
 
         if not google_sub:
-            raise ValueError("Google account ID verify nahi ho saki")
+            raise ValueError("Could not verify Google account ID")
 
         user_row = conn.execute(
             "SELECT * FROM users WHERE google_sub = ? OR (email IS NOT NULL AND LOWER(email) = LOWER(?)) LIMIT 1",
@@ -640,7 +640,7 @@ def google_auth_callback(
                 },
             )
     except Exception as exc:
-        err_msg = str(exc) or "Google verification fail ho gayi"
+        err_msg = str(exc) or "Google verification failed"
         save_google_session(conn, sid, "error", {"detail": err_msg})
         if mode == "app":
             return render_app_return_html(sid, action, "Login Failed", err_msg, is_error=True)
@@ -653,7 +653,7 @@ def google_auth_callback(
             sid,
             action,
             "Google Verified!",
-            "Aapka Google account verify ho gaya hai. Neeche button par tap karein ya TeleClone app par wapas jayein.",
+            "Your Google account has been verified. Tap the button below or return to the TeleClone app.",
         )
     return RedirectResponse(url=f"/?google_sid={urllib.parse.quote(sid)}&google_action={urllib.parse.quote(action)}")
 
@@ -690,7 +690,7 @@ def google_auth_complete(body: GoogleCompleteRequest):
         if claims.get("purpose") != "google_setup":
             raise HTTPException(status_code=400, detail="Invalid setup session")
     except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=400, detail="Session expire ho gaya — dobara Google se continue karein")
+        raise HTTPException(status_code=400, detail="Session expired — please continue with Google again")
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid Google session")
 
@@ -700,7 +700,7 @@ def google_auth_complete(body: GoogleCompleteRequest):
 
     display_name = (body.name or "").strip()[:64]
     if not display_name:
-        raise HTTPException(status_code=400, detail="Apna naam darj karein")
+        raise HTTPException(status_code=400, detail="Please enter your name")
 
     phone = normalize_phone(body.phone)
     now = int(time.time())
@@ -720,7 +720,7 @@ def google_auth_complete(body: GoogleCompleteRequest):
 
         phone_taken = conn.execute("SELECT id FROM users WHERE phone = ?", (phone,)).fetchone()
         if phone_taken:
-            raise HTTPException(status_code=409, detail="Yeh phone number pehle se kisi account par registered hai")
+            raise HTTPException(status_code=409, detail="This phone number is already registered to another account")
 
         if body.username and body.username.strip():
             uname = clean_username(body.username)
@@ -730,7 +730,7 @@ def google_auth_complete(body: GoogleCompleteRequest):
 
         taken = conn.execute("SELECT id FROM users WHERE LOWER(username) = LOWER(?)", (uname,)).fetchone()
         if taken:
-            raise HTTPException(status_code=409, detail="Yeh @username pehle se lia ja chuka hai")
+            raise HTTPException(status_code=409, detail="This @username is already taken")
 
         color = AVATAR_GRADIENTS[secrets.randbelow(len(AVATAR_GRADIENTS))]
         cur = conn.cursor()

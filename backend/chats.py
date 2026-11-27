@@ -112,7 +112,7 @@ def ensure_member(conn, chat_id: int, user_id: int):
         (chat_id, user_id),
     ).fetchone()
     if not row:
-        raise HTTPException(status_code=403, detail="Aap is chat ke member nahi hain")
+        raise HTTPException(status_code=403, detail="You are not a member of this chat")
     return row
 
 
@@ -341,7 +341,7 @@ def list_chats(user: dict = Depends(get_current_user)):
 
 @router.get("/search")
 def global_search(q: str = Query(default="", min_length=1), user: dict = Depends(get_current_user)):
-    """Real registered users, bots, aur public groups/channels search karta hai."""
+    """Searches registered users, bots, and public groups/channels."""
     term = f"%{q.strip().lstrip('@')}%"
     conn = get_conn()
     try:
@@ -409,12 +409,12 @@ async def open_or_create_direct(body: DirectChatRequest, user: dict = Depends(ge
             uname = body.username.strip().lstrip("@")
             target = conn.execute("SELECT * FROM users WHERE LOWER(username) = LOWER(?)", (uname,)).fetchone()
         else:
-            raise HTTPException(status_code=400, detail="targetUserId ya username dein")
+            raise HTTPException(status_code=400, detail="Please provide targetUserId or username")
 
         if not target:
-            raise HTTPException(status_code=404, detail="User ya bot nahi mila")
+            raise HTTPException(status_code=404, detail="User or bot not found")
         if target["id"] == user["id"]:
-            raise HTTPException(status_code=400, detail="Saved Messages use karein")
+            raise HTTPException(status_code=400, detail="Use Saved Messages to message yourself")
 
         chat_type = "bot" if target["is_bot"] else "personal"
         existing = conn.execute(
@@ -457,7 +457,7 @@ async def open_or_create_direct(body: DirectChatRequest, user: dict = Depends(ge
 async def create_group(body: CreateGroupRequest, user: dict = Depends(get_current_user)):
     name = body.name.strip()[:80]
     if not name:
-        raise HTTPException(status_code=400, detail="Group name zaroori hai")
+        raise HTTPException(status_code=400, detail="Group name is required")
 
     now = int(time.time())
     conn = get_conn()
@@ -498,7 +498,7 @@ async def create_group(body: CreateGroupRequest, user: dict = Depends(get_curren
 def create_channel(body: CreateChannelRequest, user: dict = Depends(get_current_user)):
     name = body.name.strip()[:80]
     if not name:
-        raise HTTPException(status_code=400, detail="Channel name zaroori hai")
+        raise HTTPException(status_code=400, detail="Channel name is required")
 
     uname = None
     if body.username and body.username.strip():
@@ -510,7 +510,7 @@ def create_channel(body: CreateChannelRequest, user: dict = Depends(get_current_
         if uname:
             taken = conn.execute("SELECT id FROM chats WHERE LOWER(username) = LOWER(?)", (uname,)).fetchone()
             if taken:
-                raise HTTPException(status_code=409, detail="Channel @username pehle se lia ja chuka hai")
+                raise HTTPException(status_code=409, detail="Channel @username is already taken")
 
         cur = conn.cursor()
         cur.execute(
@@ -537,7 +537,7 @@ def join_public_chat(chat_id: int, user: dict = Depends(get_current_user)):
     try:
         chat = conn.execute("SELECT * FROM chats WHERE id = ? AND type IN ('group', 'channel')", (chat_id,)).fetchone()
         if not chat:
-            raise HTTPException(status_code=404, detail="Group ya channel nahi mila")
+            raise HTTPException(status_code=404, detail="Group or channel not found")
         conn.execute(
             "INSERT OR IGNORE INTO chat_members (chat_id, user_id, role, joined_at) VALUES (?, ?, 'member', ?)",
             (chat_id, user["id"], int(time.time())),
@@ -555,7 +555,7 @@ async def add_member(chat_id: int, body: AddMemberRequest, user: dict = Depends(
         ensure_member(conn, chat_id, user["id"])
         chat = conn.execute("SELECT * FROM chats WHERE id = ?", (chat_id,)).fetchone()
         if not chat or chat["type"] != "group":
-            raise HTTPException(status_code=400, detail="Sirf group mein members add ho saktay hain")
+            raise HTTPException(status_code=400, detail="Members can only be added to groups")
 
         if body.userId:
             target = conn.execute("SELECT * FROM users WHERE id = ?", (body.userId,)).fetchone()
@@ -564,10 +564,10 @@ async def add_member(chat_id: int, body: AddMemberRequest, user: dict = Depends(
                 "SELECT * FROM users WHERE LOWER(username) = LOWER(?)", (body.username.strip().lstrip("@"),)
             ).fetchone()
         else:
-            raise HTTPException(status_code=400, detail="userId ya username dein")
+            raise HTTPException(status_code=400, detail="Please provide userId or username")
 
         if not target:
-            raise HTTPException(status_code=404, detail="User/Bot nahi mila")
+            raise HTTPException(status_code=404, detail="User or bot not found")
 
         role = "admin" if target["is_bot"] else "member"
         conn.execute(
@@ -669,7 +669,7 @@ async def get_messages(
 async def send_message(chat_id: int, body: SendMessageRequest, user: dict = Depends(get_current_user)):
     text = (body.text or "").strip()
     if not text and not body.attachment and not body.poll:
-        raise HTTPException(status_code=400, detail="Empty message nahi bhej saktay")
+        raise HTTPException(status_code=400, detail="Cannot send an empty message")
 
     now = int(time.time())
     conn = get_conn()
@@ -677,7 +677,7 @@ async def send_message(chat_id: int, body: SendMessageRequest, user: dict = Depe
         mem = ensure_member(conn, chat_id, user["id"])
         chat = conn.execute("SELECT * FROM chats WHERE id = ?", (chat_id,)).fetchone()
         if chat["type"] == "channel" and mem["role"] not in ("owner", "admin"):
-            raise HTTPException(status_code=403, detail="Sirf channel admin post kar saktay hain")
+            raise HTTPException(status_code=403, detail="Only channel admins can post")
 
     
         ttl = int(body.ttlSeconds) if (body.ttlSeconds and int(body.ttlSeconds) > 0) else None
@@ -737,16 +737,16 @@ async def send_message(chat_id: int, body: SendMessageRequest, user: dict = Depe
 async def edit_message(chat_id: int, msg_id: int, body: EditMessageRequest, user: dict = Depends(get_current_user)):
     new_text = body.text.strip()
     if not new_text:
-        raise HTTPException(status_code=400, detail="Text khali nahi ho sakta")
+        raise HTTPException(status_code=400, detail="Message text cannot be empty")
 
     conn = get_conn()
     try:
         ensure_member(conn, chat_id, user["id"])
         row = conn.execute("SELECT * FROM messages WHERE id = ? AND chat_id = ?", (msg_id, chat_id)).fetchone()
         if not row:
-            raise HTTPException(status_code=404, detail="Message nahi mila")
+            raise HTTPException(status_code=404, detail="Message not found")
         if row["sender_id"] != user["id"]:
-            raise HTTPException(status_code=403, detail="Sirf apna message edit kar saktay hain")
+            raise HTTPException(status_code=403, detail="You can only edit your own messages")
 
         conn.execute("UPDATE messages SET text = ?, edited = 1 WHERE id = ?", (new_text, msg_id))
         conn.commit()
@@ -768,9 +768,9 @@ async def delete_message(chat_id: int, msg_id: int, user: dict = Depends(get_cur
         mem = ensure_member(conn, chat_id, user["id"])
         row = conn.execute("SELECT * FROM messages WHERE id = ? AND chat_id = ?", (msg_id, chat_id)).fetchone()
         if not row:
-            raise HTTPException(status_code=404, detail="Message nahi mila")
+            raise HTTPException(status_code=404, detail="Message not found")
         if row["sender_id"] != user["id"] and mem["role"] not in ("owner", "admin"):
-            raise HTTPException(status_code=403, detail="Delete permission nahi hai")
+            raise HTTPException(status_code=403, detail="You do not have permission to delete this message")
 
         conn.execute("DELETE FROM messages WHERE id = ?", (msg_id,))
         conn.execute(
@@ -796,7 +796,7 @@ async def react_message(chat_id: int, msg_id: int, body: ReactionRequest, user: 
         ensure_member(conn, chat_id, user["id"])
         row = conn.execute("SELECT * FROM messages WHERE id = ? AND chat_id = ?", (msg_id, chat_id)).fetchone()
         if not row:
-            raise HTTPException(status_code=404, detail="Message nahi mila")
+            raise HTTPException(status_code=404, detail="Message not found")
 
         reactions = safe_json(row["reactions_json"], {})
         users_list = reactions.get(emoji, [])
@@ -850,7 +850,7 @@ async def trigger_inline_callback(
         ensure_member(conn, chat_id, user["id"])
         row = conn.execute("SELECT * FROM messages WHERE id = ? AND chat_id = ?", (msg_id, chat_id)).fetchone()
         if not row:
-            raise HTTPException(status_code=404, detail="Message nahi mila")
+            raise HTTPException(status_code=404, detail="Message not found")
     finally:
         conn.close()
 
@@ -866,7 +866,7 @@ async def upload_media(request: Request, user: dict = Depends(get_current_user))
         form = await request.form()
         up_file = form.get("file")
         if up_file is None:
-            raise HTTPException(status_code=400, detail="File nahi mili")
+            raise HTTPException(status_code=400, detail="File not found")
         content = await up_file.read()
         raw_filename = getattr(up_file, "filename", None) or "upload.bin"
         file_ctype = getattr(up_file, "content_type", None) or "application/octet-stream"
@@ -876,11 +876,11 @@ async def upload_media(request: Request, user: dict = Depends(get_current_user))
         file_ctype = request.headers.get("x-file-type") or "application/octet-stream"
 
     if not content:
-        raise HTTPException(status_code=400, detail="File khali (0 bytes) hai")
+        raise HTTPException(status_code=400, detail="File is empty (0 bytes)")
 
     max_bytes = 50 * 1024 * 1024  # 50 MB limit
     if len(content) > max_bytes:
-        raise HTTPException(status_code=413, detail="File size 50 MB se zyada nahi honi chahiye")
+        raise HTTPException(status_code=413, detail="File size must not exceed 50 MB")
 
     orig_name = re.sub(r"[^a-zA-Z0-9._-]", "_", raw_filename)[:80] or "upload.bin"
     ext = Path(orig_name).suffix.lower()
@@ -933,7 +933,7 @@ async def upload_media(request: Request, user: dict = Depends(get_current_user))
     }
 # ==================== AUTO-DELETE / DISAPPEARING MEDIA WATCHER ====================
 async def run_expiry_watcher():
-    """Har 1 second check karta hai ke kisi message/file ka timer khatam hua to dono taraf se delete kare."""
+    """Checks every second for expired self-destructing messages and deletes them for both sides."""
     while True:
         try:
             now = int(time.time())

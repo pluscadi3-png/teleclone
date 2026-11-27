@@ -295,8 +295,8 @@
     const s = Store.getSettings();
     els.body.innerHTML = `
       <div class="live-preview-box">
-        <div class="preview-bubble in">Salam! Font size, accent color aur bubble corners live change ho rahe hain 🎨</div>
-        <div class="preview-bubble out">Zabardast! Bilkul asli Telegram settings jaisa feel hai ⚡</div>
+        <div class="preview-bubble in">Hi! Font size, accent color, and bubble corners update live 🎨</div>
+        <div class="preview-bubble out">Awesome! Smooth and clean settings preview ⚡</div>
       </div>
 
       <div class="settings-group-title">Text & Bubbles</div>

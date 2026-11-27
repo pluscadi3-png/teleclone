@@ -122,7 +122,7 @@ async def download_uploaded_media(filename: str):
     safe_name = Path(filename).name
     target = UPLOAD_DIR / safe_name
     if not target.exists() or not target.is_file():
-        raise HTTPException(status_code=404, detail="File nahi mili")
+        raise HTTPException(status_code=404, detail="File not found")
     return FileResponse(
         target,
         filename=safe_name,

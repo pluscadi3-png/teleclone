@@ -578,7 +578,7 @@ const ticks = isMe
     const finalDur = duration === "0:00" ? "0:01" : duration;
     const attachment = window.TCVoice ? await window.TCVoice.stopAndUpload(finalDur) : null;
     if (!attachment || !attachment.src) {
-      toast("Voice note record ya upload nahi ho saka");
+      toast("Could not record or upload voice note");
       return;
     }
 
@@ -965,9 +965,9 @@ const ticks = isMe
         els.fileInput.accept = type === "photo" ? "image/*" : "*/*";
         els.fileInput.click();
       } else if (type === "poll") {
-        const question = prompt("Poll Question:", "TeleClone UI kaisi lag rahi hai?");
+        const question = prompt("Poll Question:", "How do you like TeleClone?");
         if (!question) return;
-        const optRaw = prompt("Options (comma se alag karein):", "Zabardast 🔥, Mast hai 👍, Aur features chahiye");
+        const optRaw = prompt("Options (separated by commas):", "Awesome 🔥, Looks great 👍, Need more features");
         const opts = (optRaw || "Yes,No")
           .split(",")
           .map((s) => s.trim())
