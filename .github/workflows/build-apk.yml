@@ -52,6 +52,16 @@ jobs:
           """
           if "MODIFY_AUDIO_SETTINGS" not in txt:
               txt = txt.replace("<application", perms + "\n    <application", 1)
+          deeplink = """
+              <intent-filter>
+                  <action android:name="android.intent.action.VIEW" />
+                  <category android:name="android.intent.category.DEFAULT" />
+                  <category android:name="android.intent.category.BROWSABLE" />
+                  <data android:scheme="teleclone" android:host="auth" />
+              </intent-filter>
+          """
+          if 'android:scheme="teleclone"' not in txt:
+              txt = txt.replace("</activity>", deeplink + "\n        </activity>", 1)
           p.write_text(txt, encoding="utf-8")
           EOF
 
@@ -61,25 +71,116 @@ jobs:
           package com.teleclone.app;
 
           import android.Manifest;
+          import android.content.Intent;
           import android.content.pm.PackageManager;
+          import android.net.Uri;
           import android.os.Build;
           import android.os.Bundle;
           import android.webkit.PermissionRequest;
+          import android.webkit.WebResourceRequest;
+          import android.webkit.WebView;
           import androidx.core.app.ActivityCompat;
           import androidx.core.content.ContextCompat;
           import com.getcapacitor.BridgeActivity;
           import com.getcapacitor.BridgeWebChromeClient;
+          import com.getcapacitor.BridgeWebViewClient;
           import java.util.ArrayList;
           import java.util.List;
 
           public class MainActivity extends BridgeActivity {
               private static final int PERMISSION_REQUEST_CODE = 1001;
+              private String pendingAuthSid = null;
+              private String pendingAuthAction = "login";
 
               @Override
               public void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
                   requestAppPermissions();
                   enableWebViewMediaPermissions();
+                  enableWebViewGoogleAuth();
+                  handleAuthDeepLink(getIntent(), false);
+              }
+
+              @Override
+              protected void onNewIntent(Intent intent) {
+                  super.onNewIntent(intent);
+                  setIntent(intent);
+                  handleAuthDeepLink(intent, true);
+              }
+
+              private boolean openGoogleAuthExternally(String url) {
+                  if (url == null) return false;
+                  if (url.contains("/api/auth/google/start") || url.startsWith("https://accounts.google.com")) {
+                      try {
+                          Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                          browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                          startActivity(browserIntent);
+                          return true;
+                      } catch (Exception ignored) {
+                          return false;
+                      }
+                  }
+                  return false;
+              }
+
+              private void enableWebViewGoogleAuth() {
+                  if (this.bridge == null || this.bridge.getWebView() == null) return;
+                  this.bridge.getWebView().setWebViewClient(new BridgeWebViewClient(this.bridge) {
+                      @Override
+                      public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                          if (request != null && request.getUrl() != null && openGoogleAuthExternally(request.getUrl().toString())) {
+                              return true;
+                          }
+                          return super.shouldOverrideUrlLoading(view, request);
+                      }
+
+                      @Override
+                      @SuppressWarnings("deprecation")
+                      public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                          if (openGoogleAuthExternally(url)) {
+                              return true;
+                          }
+                          return super.shouldOverrideUrlLoading(view, url);
+                      }
+
+                      @Override
+                      public void onPageFinished(WebView view, String url) {
+                          super.onPageFinished(view, url);
+                          if (pendingAuthSid != null && !pendingAuthSid.isEmpty() && url != null && url.startsWith("http")) {
+                              final String sid = pendingAuthSid;
+                              final String action = pendingAuthAction;
+                              pendingAuthSid = null;
+                              view.postDelayed(() -> dispatchAuthToJs(sid, action), 700);
+                          }
+                      }
+                  });
+              }
+
+              private void handleAuthDeepLink(Intent intent, boolean isNewIntent) {
+                  if (intent == null || intent.getData() == null) return;
+                  Uri data = intent.getData();
+                  if (!"teleclone".equals(data.getScheme()) || !"auth".equals(data.getHost())) return;
+                  String rawSid = data.getQueryParameter("sid");
+                  if (rawSid == null || rawSid.isEmpty()) return;
+                  String sid = rawSid.replaceAll("[^a-zA-Z0-9_-]", "");
+                  String action = "add".equals(data.getQueryParameter("action")) ? "add" : "login";
+                  if (sid.isEmpty()) return;
+
+                  if (isNewIntent && this.bridge != null && this.bridge.getWebView() != null) {
+                      dispatchAuthToJs(sid, action);
+                  } else {
+                      pendingAuthSid = sid;
+                      pendingAuthAction = action;
+                  }
+              }
+
+              private void dispatchAuthToJs(final String sid, final String action) {
+                  final String js = "window.dispatchEvent(new CustomEvent('tc-google-callback',{detail:{sid:'" + sid + "',action:'" + action + "'}}));";
+                  runOnUiThread(() -> {
+                      if (this.bridge != null && this.bridge.getWebView() != null) {
+                          this.bridge.getWebView().evaluateJavascript(js, null);
+                      }
+                  });
               }
 
               private void enableWebViewMediaPermissions() {
@@ -115,7 +216,6 @@ jobs:
                   perms.add(Manifest.permission.READ_CONTACTS);
                   perms.add(Manifest.permission.CAMERA);
                   perms.add(Manifest.permission.RECORD_AUDIO);
-
                   if (Build.VERSION.SDK_INT >= 33) {
                       perms.add("android.permission.POST_NOTIFICATIONS");
                       perms.add("android.permission.READ_MEDIA_IMAGES");
@@ -126,20 +226,14 @@ jobs:
                           perms.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
                       }
                   }
-
                   List<String> needed = new ArrayList<>();
                   for (String perm : perms) {
                       if (ContextCompat.checkSelfPermission(this, perm) != PackageManager.PERMISSION_GRANTED) {
                           needed.add(perm);
                       }
                   }
-
                   if (!needed.isEmpty()) {
-                      ActivityCompat.requestPermissions(
-                          this,
-                          needed.toArray(new String[0]),
-                          PERMISSION_REQUEST_CODE
-                      );
+                      ActivityCompat.requestPermissions(this, needed.toArray(new String[0]), PERMISSION_REQUEST_CODE);
                   }
               }
           }
