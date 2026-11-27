@@ -1,4 +1,4 @@
-const SHELL_CACHE = "teleclone-shell-v17";
+const SHELL_CACHE = "teleclone-shell-v18";
 const API_CACHE = "teleclone-api-v1";
 const MEDIA_CACHE = "teleclone-media-v1";
 
@@ -73,6 +73,10 @@ async function buildRangeResponse(request, cachedResponse) {
 }
 
 self.addEventListener("fetch", (event) => {
+  try {
+    const _u = new URL(event.request.url);
+    if (_u.pathname.startsWith("/api/auth/") || (event.request.mode === "navigate" && _u.pathname.startsWith("/api/"))) return;
+  } catch (_) {}
   const req = event.request;
   if (req.method !== "GET") return;
 
