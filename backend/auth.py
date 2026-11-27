@@ -391,3 +391,362 @@ def update_privacy_settings(body: PrivacyUpdateRequest, user: dict = Depends(get
         return {"ok": True, "user": serialize_user(updated)}
     finally:
         conn.close()
+
+        # ==================== GOOGLE OAUTH (NO-OTP PHONE SIGNUP) ====================
+import json
+import urllib.error
+import urllib.parse
+import urllib.request
+from fastapi import Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "").strip()
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
+
+
+class GoogleCompleteRequest(BaseModel):
+    setupToken: str
+    name: str
+    phone: str
+    username: Optional[str] = None
+
+
+def ensure_google_auth_schema(conn):
+    for stmt in [
+        "ALTER TABLE users ADD COLUMN avatar_url TEXT DEFAULT ''",
+        "ALTER TABLE users ADD COLUMN google_sub TEXT",
+        "ALTER TABLE users ADD COLUMN email TEXT",
+    ]:
+        try:
+            conn.execute(stmt)
+        except Exception:
+            pass
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS google_auth_sessions (
+            sid TEXT PRIMARY KEY,
+            status TEXT NOT NULL,
+            payload_json TEXT DEFAULT '{}',
+            created_at INTEGER NOT NULL
+        )
+        """
+    )
+    conn.commit()
+
+
+def get_public_base_url(request: Request) -> str:
+    if PUBLIC_BASE_URL:
+        return PUBLIC_BASE_URL
+    proto = (request.headers.get("x-forwarded-proto") or request.url.scheme or "https").split(",")[0].strip()
+    host = (request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc).split(",")[0].strip()
+    return f"{proto}://{host}"
+
+
+def save_google_session(conn, sid: str, status: str, payload: dict):
+    now = int(time.time())
+    conn.execute("DELETE FROM google_auth_sessions WHERE created_at < ?", (now - 900,))
+    conn.execute(
+        """
+        INSERT INTO google_auth_sessions (sid, status, payload_json, created_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(sid) DO UPDATE SET status = excluded.status, payload_json = excluded.payload_json, created_at = excluded.created_at
+        """,
+        (sid, status, json.dumps(payload), now),
+    )
+    conn.commit()
+
+
+def create_google_setup_token(google_sub: str, email: str, name: str, picture: str) -> str:
+    now = int(time.time())
+    payload = {
+        "purpose": "google_setup",
+        "google_sub": google_sub,
+        "email": email,
+        "name": name,
+        "picture": picture,
+        "iat": now,
+        "exp": now + 900,
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def render_app_return_html(sid: str, action: str, title: str, message: str, is_error: bool = False) -> HTMLResponse:
+    deep_link = f"teleclone://auth?sid={urllib.parse.quote(sid)}&action={urllib.parse.quote(action)}"
+    accent = "#ef4444" if is_error else "#67b346"
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>{title}</title>
+<style>
+  body {{ margin:0; min-height:100vh; background:#000; color:#fff; font-family:system-ui,-apple-system,sans-serif; display:flex; align-items:center; justify-content:center; padding:20px; text-align:center; }}
+  .card {{ max-width:340px; width:100%; background:#14151a; border:1px solid rgba(255,255,255,0.08); border-radius:22px; padding:26px 20px; }}
+  .dot {{ width:58px; height:58px; border-radius:50%; background:{accent}; margin:0 auto 14px; display:flex; align-items:center; justify-content:center; font-size:28px; }}
+  h2 {{ margin:0 0 8px; font-size:20px; }}
+  p {{ margin:0 0 20px; font-size:14px; color:#9ca3af; line-height:1.45; }}
+  a.btn {{ display:block; text-decoration:none; background:#67b346; color:#fff; font-weight:700; padding:13px 16px; border-radius:14px; font-size:15px; }}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="dot">{"!" if is_error else "✓"}</div>
+    <h2>{title}</h2>
+    <p>{message}</p>
+    <a class="btn" href="{deep_link}">Return to TeleClone</a>
+  </div>
+  <script>
+    setTimeout(function() {{ window.location.href = {json.dumps(deep_link)}; }}, 250);
+  </script>
+</body>
+</html>"""
+    return HTMLResponse(content=html)
+
+
+@router.get("/google/config")
+def google_auth_config():
+    return {"ok": True, "enabled": bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)}
+
+
+@router.get("/google/start")
+def google_auth_start(request: Request, sid: str = "", mode: str = "web", action: str = "login"):
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        raise HTTPException(status_code=503, detail="Railway Variables mein GOOGLE_CLIENT_ID aur GOOGLE_CLIENT_SECRET set karein")
+
+    clean_sid = re.sub(r"[^a-zA-Z0-9_-]", "", sid or "")[:64] or secrets.token_urlsafe(18)
+    clean_mode = "app" if mode == "app" else "web"
+    clean_action = "add" if action == "add" else "login"
+
+    conn = get_conn()
+    try:
+        ensure_google_auth_schema(conn)
+        save_google_session(conn, clean_sid, "pending", {"action": clean_action})
+    finally:
+        conn.close()
+
+    redirect_uri = f"{get_public_base_url(request)}/api/auth/google/callback"
+    state = f"{clean_sid}|{clean_mode}|{clean_action}"
+
+    params = urllib.parse.urlencode(
+        {
+            "client_id": GOOGLE_CLIENT_ID,
+            "redirect_uri": redirect_uri,
+            "response_type": "code",
+            "scope": "openid email profile",
+            "access_type": "online",
+            "prompt": "select_account",
+            "state": state,
+        }
+    )
+    return RedirectResponse(url=f"https://accounts.google.com/o/oauth2/v2/auth?{params}")
+
+
+@router.get("/google/callback")
+def google_auth_callback(
+    request: Request,
+    code: str = "",
+    state: str = "",
+    error: str = "",
+):
+    parts = (state or "").split("|")
+    sid = re.sub(r"[^a-zA-Z0-9_-]", "", parts[0])[:64] if parts and parts[0] else secrets.token_urlsafe(12)
+    mode = parts[1] if len(parts) > 1 and parts[1] == "app" else "web"
+    action = parts[2] if len(parts) > 2 and parts[2] == "add" else "login"
+
+    conn = get_conn()
+    try:
+        ensure_google_auth_schema(conn)
+
+        if error or not code:
+            err_msg = error or "Google sign-in cancel ho gaya"
+            save_google_session(conn, sid, "error", {"detail": err_msg})
+            if mode == "app":
+                return render_app_return_html(sid, action, "Sign-in Cancelled", err_msg, is_error=True)
+            return RedirectResponse(url=f"/?google_sid={urllib.parse.quote(sid)}&google_action={urllib.parse.quote(action)}")
+
+        redirect_uri = f"{get_public_base_url(request)}/api/auth/google/callback"
+        token_data = urllib.parse.urlencode(
+            {
+                "code": code,
+                "client_id": GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "redirect_uri": redirect_uri,
+                "grant_type": "authorization_code",
+            }
+        ).encode("utf-8")
+
+        token_req = urllib.request.Request(
+            "https://oauth2.googleapis.com/token",
+            data=token_data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            method="POST",
+        )
+        with urllib.request.urlopen(token_req, timeout=15) as resp:
+            token_json = json.loads(resp.read().decode("utf-8"))
+
+        access_token = token_json.get("access_token", "")
+        if not access_token:
+            raise ValueError("Google access token nahi mila")
+
+        info_req = urllib.request.Request(
+            "https://www.googleapis.com/oauth2/v3/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        with urllib.request.urlopen(info_req, timeout=15) as resp:
+            profile = json.loads(resp.read().decode("utf-8"))
+
+        google_sub = str(profile.get("sub") or "").strip()
+        email = str(profile.get("email") or "").strip().lower()
+        name = str(profile.get("name") or email.split("@")[0] or "User").strip()[:64]
+        picture = str(profile.get("picture") or "").strip()
+
+        if not google_sub:
+            raise ValueError("Google account ID verify nahi ho saki")
+
+        user_row = conn.execute(
+            "SELECT * FROM users WHERE google_sub = ? OR (email IS NOT NULL AND LOWER(email) = LOWER(?)) LIMIT 1",
+            (google_sub, email),
+        ).fetchone()
+
+        if user_row:
+            now = int(time.time())
+            conn.execute(
+                "UPDATE users SET google_sub = ?, email = ?, last_seen = ? WHERE id = ?",
+                (google_sub, email, now, user_row["id"]),
+            )
+            conn.commit()
+            updated = conn.execute("SELECT * FROM users WHERE id = ?", (user_row["id"],)).fetchone()
+            jwt_token = create_jwt_token(updated["id"])
+            save_google_session(
+                conn,
+                sid,
+                "login",
+                {"token": jwt_token, "user": serialize_user(updated), "action": action},
+            )
+        else:
+            setup_token = create_google_setup_token(google_sub, email, name, picture)
+            save_google_session(
+                conn,
+                sid,
+                "needs_profile",
+                {
+                    "setupToken": setup_token,
+                    "email": email,
+                    "name": name,
+                    "picture": picture,
+                    "action": action,
+                },
+            )
+    except Exception as exc:
+        err_msg = str(exc) or "Google verification fail ho gayi"
+        save_google_session(conn, sid, "error", {"detail": err_msg})
+        if mode == "app":
+            return render_app_return_html(sid, action, "Login Failed", err_msg, is_error=True)
+        return RedirectResponse(url=f"/?google_sid={urllib.parse.quote(sid)}&google_action={urllib.parse.quote(action)}")
+    finally:
+        conn.close()
+
+    if mode == "app":
+        return render_app_return_html(
+            sid,
+            action,
+            "Google Verified!",
+            "Aapka Google account verify ho gaya hai. Neeche button par tap karein ya TeleClone app par wapas jayein.",
+        )
+    return RedirectResponse(url=f"/?google_sid={urllib.parse.quote(sid)}&google_action={urllib.parse.quote(action)}")
+
+
+@router.get("/google/poll")
+def google_auth_poll(sid: str):
+    clean_sid = re.sub(r"[^a-zA-Z0-9_-]", "", sid or "")[:64]
+    if not clean_sid:
+        raise HTTPException(status_code=400, detail="Missing session id")
+
+    conn = get_conn()
+    try:
+        ensure_google_auth_schema(conn)
+        row = conn.execute(
+            "SELECT status, payload_json, created_at FROM google_auth_sessions WHERE sid = ?",
+            (clean_sid,),
+        ).fetchone()
+        if not row:
+            return {"ok": True, "status": "pending"}
+        payload = json.loads(row["payload_json"] or "{}")
+        status = row["status"]
+        if status in {"login", "needs_profile", "error"}:
+            conn.execute("DELETE FROM google_auth_sessions WHERE sid = ?", (clean_sid,))
+            conn.commit()
+        return {"ok": True, "status": status, **payload}
+    finally:
+        conn.close()
+
+
+@router.post("/google/complete")
+def google_auth_complete(body: GoogleCompleteRequest):
+    try:
+        claims = jwt.decode(body.setupToken, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        if claims.get("purpose") != "google_setup":
+            raise HTTPException(status_code=400, detail="Invalid setup session")
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=400, detail="Session expire ho gaya — dobara Google se continue karein")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid Google session")
+
+    google_sub = str(claims.get("google_sub") or "").strip()
+    email = str(claims.get("email") or "").strip().lower()
+    picture = str(claims.get("picture") or "").strip()
+
+    display_name = (body.name or "").strip()[:64]
+    if not display_name:
+        raise HTTPException(status_code=400, detail="Apna naam darj karein")
+
+    phone = normalize_phone(body.phone)
+    now = int(time.time())
+
+    conn = get_conn()
+    try:
+        ensure_google_auth_schema(conn)
+
+        # Agar Google account pehle hi ban chuka ho to seedha login kar dein
+        existing_google = conn.execute(
+            "SELECT * FROM users WHERE google_sub = ? OR (email IS NOT NULL AND LOWER(email) = LOWER(?)) LIMIT 1",
+            (google_sub, email),
+        ).fetchone()
+        if existing_google:
+            token = create_jwt_token(existing_google["id"])
+            return {"ok": True, "token": token, "user": serialize_user(existing_google)}
+
+        phone_taken = conn.execute("SELECT id FROM users WHERE phone = ?", (phone,)).fetchone()
+        if phone_taken:
+            raise HTTPException(status_code=409, detail="Yeh phone number pehle se kisi account par registered hai")
+
+        if body.username and body.username.strip():
+            uname = clean_username(body.username)
+        else:
+            base = re.sub(r"[^a-zA-Z0-9]", "", display_name.lower())[:12] or "user"
+            uname = f"{base}_{secrets.randbelow(9000) + 1000}"
+
+        taken = conn.execute("SELECT id FROM users WHERE LOWER(username) = LOWER(?)", (uname,)).fetchone()
+        if taken:
+            raise HTTPException(status_code=409, detail="Yeh @username pehle se lia ja chuka hai")
+
+        color = AVATAR_GRADIENTS[secrets.randbelow(len(AVATAR_GRADIENTS))]
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO users (phone, username, name, bio, avatar_color, avatar_url, google_sub, email, is_bot, last_seen, created_at)
+            VALUES (?, ?, ?, '', ?, ?, ?, ?, 0, ?, ?)
+            """,
+            (phone, uname, display_name, color, picture, google_sub, email, now, now),
+        )
+        new_user_id = cur.lastrowid
+        setup_starter_chats(conn, new_user_id)
+        conn.commit()
+
+        new_row = conn.execute("SELECT * FROM users WHERE id = ?", (new_user_id,)).fetchone()
+        token = create_jwt_token(new_user_id)
+        return {"ok": True, "token": token, "user": serialize_user(new_row)}
+    finally:
+        conn.close()
