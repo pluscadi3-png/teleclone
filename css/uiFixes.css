@@ -4586,3 +4586,90 @@ body {
   border-radius: 99px;
   cursor: pointer;
 }
+
+
+/* =========================================================
+   WEBRTC VIDEO CALL FULLSCREEN STAGE + LOCAL PIP PREVIEW
+   ========================================================= */
+
+.tc-vc-overlay.tc-vc-video-mode {
+  background: #000000;
+}
+
+.tc-vc-overlay.tc-vc-video-mode .tc-vc-shell {
+  position: relative;
+  z-index: 3;
+}
+
+.tc-vc-remote-vid {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000000;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  z-index: 1;
+}
+
+.tc-vc-remote-vid.visible {
+  opacity: 1;
+}
+
+.tc-vc-pip-box {
+  position: absolute;
+  top: 78px;
+  right: 16px;
+  width: 108px;
+  height: 152px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #14151a;
+  border: 2px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.65);
+  z-index: 4;
+}
+
+.tc-vc-local-vid {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.tc-vc-local-vid.mirrored {
+  transform: scaleX(-1);
+}
+
+.tc-vc-top-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.85);
+}
+
+.tc-vc-top-name {
+  font-size: 17px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-top: 2px;
+}
+
+.tc-vc-top-timer {
+  font-size: 13px;
+  color: #86efac;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.tc-vc-video-ctrls {
+  background: rgba(12, 13, 18, 0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.tc-vc-video-ctrls .tc-vc-round-btn {
+  width: 56px;
+  height: 56px;
+}

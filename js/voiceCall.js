@@ -15,6 +15,9 @@
     micOff: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`,
     speaker: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>`,
     phone: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.01-.24c1.12.37 2.33.57 3.58.57a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1C10.61 21 3 13.39 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.46.57 3.58a1 1 0 0 1-.25 1.01l-2.2 2.2z"/></svg>`,
+    videoOn: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>`,
+    videoOff: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`,
+    flipCam: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><path d="M9 13a3 3 0 0 1 5.12-2.12L15 12"/><path d="M15 14a3 3 0 0 1-5.12 2.12L9 15"/></svg>`,
     minimize: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`
   };
 
@@ -102,7 +105,8 @@
     if (!token) return;
 
     const elapsedSec = call.connectedAt ? Math.max(1, Math.round((Date.now() - call.connectedAt) / 1000)) : 0;
-    const finalStatus = statusOverride || (call.direction === "incoming" ? (elapsedSec > 0 ? "incoming" : "missed") : "outgoing");
+    const finalStatus =
+      statusOverride || (call.direction === "incoming" ? (elapsedSec > 0 ? "incoming" : "missed") : "outgoing");
 
     fetch("/api/calls/log", {
       method: "POST",
@@ -113,14 +117,14 @@
       body: JSON.stringify({
         targetUserId: call.targetUserId ? Number(call.targetUserId) : null,
         chatId: call.chatId ? Number(call.chatId) : null,
-        callType: "voice",
+        callType: call.callType === "video" ? "video" : "voice",
         status: finalStatus,
         duration: formatDuration(elapsedSec)
       })
     }).catch(() => {});
   }
 
-  // ===== Built-in Web Audio Ringtone & Ringback Synthesizer =====
+  // ===== Built-in Web Audio Ringtone & Ringback =====
   function stopTone() {
     if (toneInterval) {
       clearInterval(toneInterval);
@@ -184,7 +188,7 @@
     toneInterval = setInterval(chime, 2300);
   }
 
-  // ===== Remote Audio Element =====
+  // ===== Persistent Remote Audio Element (Never cuts out on minimize) =====
   function getRemoteAudioEl() {
     let el = document.getElementById("tcRemoteCallAudio");
     if (!el) {
@@ -198,11 +202,83 @@
     return el;
   }
 
-  // ===== WebRTC PeerConnection Setup =====
+  function attachMediaStreams() {
+    const call = activeCall;
+    if (!call) return;
+
+    if (call.remoteStream) {
+      const audioEl = getRemoteAudioEl();
+      if (audioEl.srcObject !== call.remoteStream) {
+        audioEl.srcObject = call.remoteStream;
+      }
+      audioEl.muted = false;
+      audioEl.volume = call.speakerOn ? 1.0 : 0.65;
+      audioEl.play().catch(() => {});
+
+      const remoteVid = document.getElementById("tcRemoteCallVideo");
+      if (remoteVid) {
+        if (remoteVid.srcObject !== call.remoteStream) {
+          remoteVid.srcObject = call.remoteStream;
+        }
+        remoteVid.muted = true; // Audio handled by persistent #tcRemoteCallAudio
+        remoteVid.play().catch(() => {});
+      }
+    }
+
+    if (call.localStream) {
+      const localVid = document.getElementById("tcLocalCallVideo");
+      if (localVid) {
+        if (localVid.srcObject !== call.localStream) {
+          localVid.srcObject = call.localStream;
+        }
+        localVid.muted = true;
+        localVid.play().catch(() => {});
+      }
+    }
+  }
+
+  async function acquireMediaStream(wantVideo, facingMode) {
+    const audioCfg = {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true
+    };
+    if (!wantVideo) {
+      return {
+        stream: await navigator.mediaDevices.getUserMedia({ audio: audioCfg, video: false }),
+        hasVideo: false
+      };
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: audioCfg,
+        video: {
+          facingMode: facingMode || "user",
+          width: { ideal: 720 },
+          height: { ideal: 1280 }
+        }
+      });
+      return { stream, hasVideo: true };
+    } catch (err) {
+      // Fallback to basic video constraints, then audio-only
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: audioCfg, video: true });
+        return { stream, hasVideo: true };
+      } catch (_) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: audioCfg, video: false });
+        toast("Camera unavailable — continuing with audio");
+        return { stream, hasVideo: false };
+      }
+    }
+  }
+
+  // ===== WebRTC PeerConnection =====
   async function createPeerConnection(call) {
     const iceServers = await loadIceServers();
     const pc = new RTCPeerConnection({ iceServers });
     call.pc = pc;
+    call.remoteStream = new MediaStream();
 
     pc.onicecandidate = (ev) => {
       if (ev.candidate && activeCall && activeCall.callId === call.callId) {
@@ -217,12 +293,22 @@
     };
 
     pc.ontrack = (ev) => {
-      const stream = (ev.streams && ev.streams[0]) || new MediaStream([ev.track]);
-      const audioEl = getRemoteAudioEl();
-      audioEl.srcObject = stream;
-      audioEl.muted = false;
-      audioEl.volume = call.speakerOn ? 1.0 : 0.72;
-      audioEl.play().catch(() => {});
+      if (ev.streams && ev.streams[0]) {
+        ev.streams[0].getTracks().forEach((tr) => {
+          if (!call.remoteStream.getTracks().some((t) => t.id === tr.id)) {
+            call.remoteStream.addTrack(tr);
+          }
+        });
+      } else if (ev.track) {
+        if (!call.remoteStream.getTracks().some((t) => t.id === ev.track.id)) {
+          call.remoteStream.addTrack(ev.track);
+        }
+      }
+      if (ev.track && ev.track.kind === "video") {
+        call.hasRemoteVideo = true;
+        renderCallUI();
+      }
+      attachMediaStreams();
     };
 
     pc.onconnectionstatechange = () => {
@@ -282,8 +368,8 @@
     if (miniEl) miniEl.textContent = txt;
   }
 
-  // ===== Outgoing Call =====
-  async function startVoiceCall({ targetUserId, chatId, name, avatarUrl, color }) {
+  // ===== Outgoing Voice / Video Call =====
+  async function startCall({ targetUserId, chatId, name, avatarUrl, color, callType = "voice" }) {
     if (activeCall) {
       activeCall.minimized = false;
       renderCallUI();
@@ -294,13 +380,15 @@
       return;
     }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      toast("Voice calling is not supported on this browser");
+      toast("Calling is not supported on this browser");
       return;
     }
 
+    const isVideo = callType === "video";
     const callId = `vc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const call = {
       callId,
+      callType: isVideo ? "video" : "voice",
       direction: "outgoing",
       state: "calling",
       targetUserId: targetUserId ? String(targetUserId) : null,
@@ -310,8 +398,12 @@
       peerColor: color || "linear-gradient(135deg,#334155,#1e293b)",
       muted: false,
       speakerOn: true,
+      cameraOff: !isVideo,
+      facingMode: "user",
+      hasRemoteVideo: false,
       minimized: false,
       localStream: null,
+      remoteStream: null,
       pc: null,
       iceQueue: [],
       pendingOffer: null,
@@ -325,30 +417,29 @@
     renderCallUI();
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        },
-        video: false
-      });
-
+      const { stream, hasVideo } = await acquireMediaStream(isVideo, call.facingMode);
       if (!activeCall || activeCall.callId !== callId) {
         stream.getTracks().forEach((t) => t.stop());
         return;
       }
 
       call.localStream = stream;
+      call.cameraOff = !hasVideo;
+      if (isVideo && !hasVideo) call.callType = "voice";
+
       const pc = await createPeerConnection(call);
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
-      const offer = await pc.createOffer({ offerToReceiveAudio: true });
+      const offer = await pc.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: call.callType === "video"
+      });
       await pc.setLocalDescription(offer);
 
       const sent = sendSignal({
         type: "call_offer",
         callId,
+        callType: call.callType,
         targetUserId: call.targetUserId ? Number(call.targetUserId) : null,
         chatId: call.chatId ? Number(call.chatId) : null,
         sdp: offer
@@ -359,6 +450,7 @@
         return;
       }
 
+      renderCallUI();
       startRingbackTone();
       call.ringTimeout = setTimeout(() => {
         if (activeCall && activeCall.callId === callId && activeCall.state !== "connected") {
@@ -368,13 +460,13 @@
     } catch (err) {
       const msg =
         err && (err.name === "NotAllowedError" || err.name === "PermissionDeniedError")
-          ? "Microphone permission denied — allow mic access in Settings"
-          : "Could not start voice call";
+          ? "Camera or microphone permission denied — allow access in Settings"
+          : "Could not start call";
       endActiveCall(false, msg);
     }
   }
 
-  // ===== Accept Incoming Call =====
+  // ===== Accept Incoming Voice / Video Call =====
   async function acceptIncomingCall() {
     const call = activeCall;
     if (!call || call.state !== "incoming" || !call.pendingOffer) return;
@@ -385,14 +477,8 @@
     renderCallUI();
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        },
-        video: false
-      });
+      const wantVideo = call.callType === "video";
+      const { stream, hasVideo } = await acquireMediaStream(wantVideo, call.facingMode);
 
       if (!activeCall || activeCall.callId !== call.callId) {
         stream.getTracks().forEach((t) => t.stop());
@@ -400,6 +486,8 @@
       }
 
       call.localStream = stream;
+      call.cameraOff = !hasVideo;
+
       const pc = await createPeerConnection(call);
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
@@ -412,29 +500,31 @@
       sendSignal({
         type: "call_answer",
         callId: call.callId,
+        callType: call.callType,
         targetUserId: Number(call.targetUserId),
         chatId: call.chatId ? Number(call.chatId) : null,
         sdp: answer
       });
 
-      // Fallback connected state if ICE takes a second
+      renderCallUI();
+
       setTimeout(() => {
         if (activeCall && activeCall.callId === call.callId && activeCall.state === "connecting") {
           onCallConnected(call);
         }
-      }, 1500);
+      }, 1600);
     } catch (err) {
       sendSignal({
         type: "call_reject",
         callId: call.callId,
         targetUserId: Number(call.targetUserId),
-        reason: "Mic unavailable"
+        reason: "Permissions unavailable"
       });
-      endActiveCall(false, "Microphone permission is required to answer calls");
+      endActiveCall(false, "Microphone/camera permission is required to answer");
     }
   }
 
-  // ===== Reject / End Call =====
+  // ===== Decline / End / Controls =====
   function declineIncomingCall() {
     const call = activeCall;
     if (!call) return;
@@ -513,6 +603,66 @@
     renderCallUI();
   }
 
+  function toggleCamera() {
+    if (!activeCall || activeCall.callType !== "video" || !activeCall.localStream) return;
+    const vTracks = activeCall.localStream.getVideoTracks();
+    if (!vTracks.length) {
+      toast("No camera available");
+      return;
+    }
+    activeCall.cameraOff = !activeCall.cameraOff;
+    vTracks.forEach((t) => {
+      t.enabled = !activeCall.cameraOff;
+    });
+    renderCallUI();
+  }
+
+  async function switchCamera() {
+    const call = activeCall;
+    if (!call || call.callType !== "video" || !call.localStream) return;
+
+    const nextMode = call.facingMode === "user" ? "environment" : "user";
+    try {
+      let newStream;
+      try {
+        newStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { exact: nextMode }, width: { ideal: 720 }, height: { ideal: 1280 } },
+          audio: false
+        });
+      } catch (_) {
+        newStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: nextMode },
+          audio: false
+        });
+      }
+
+      const newTrack = newStream.getVideoTracks()[0];
+      if (!newTrack) return;
+      newTrack.enabled = !call.cameraOff;
+
+      // Replace track inside RTCPeerConnection without dropping the call
+      if (call.pc) {
+        const sender = call.pc.getSenders().find((s) => s.track && s.track.kind === "video");
+        if (sender) {
+          await sender.replaceTrack(newTrack);
+        }
+      }
+
+      // Swap track on localStream and stop old camera track
+      const oldTracks = call.localStream.getVideoTracks();
+      oldTracks.forEach((ot) => {
+        call.localStream.removeTrack(ot);
+        try { ot.stop(); } catch (_) {}
+      });
+      call.localStream.addTrack(newTrack);
+      call.facingMode = nextMode;
+
+      renderCallUI();
+    } catch (_) {
+      toast("Could not switch camera on this device");
+    }
+  }
+
   // ===== Incoming Signaling Handler =====
   window.addEventListener("tc-call-signal", async (e) => {
     const data = e && e.detail;
@@ -529,8 +679,10 @@
       }
 
       const caller = data.caller || {};
+      const isVid = data.callType === "video";
       activeCall = {
         callId: data.callId,
+        callType: isVid ? "video" : "voice",
         direction: "incoming",
         state: "incoming",
         targetUserId: String(data.fromUserId),
@@ -540,8 +692,12 @@
         peerColor: caller.avatarColor || "linear-gradient(135deg,#334155,#1e293b)",
         muted: false,
         speakerOn: true,
+        cameraOff: !isVid,
+        facingMode: "user",
+        hasRemoteVideo: false,
         minimized: false,
         localStream: null,
+        remoteStream: null,
         pc: null,
         iceQueue: [],
         pendingOffer: data.sdp,
@@ -551,7 +707,6 @@
         logged: false
       };
 
-      // Notify caller that our phone is ringing
       sendSignal({
         type: "call_ringing",
         callId: data.callId,
@@ -563,7 +718,7 @@
 
       activeCall.ringTimeout = setTimeout(() => {
         if (activeCall && activeCall.callId === data.callId && activeCall.state === "incoming") {
-          endActiveCall(false, "Missed voice call", "missed");
+          endActiveCall(false, isVid ? "Missed video call" : "Missed voice call", "missed");
         }
       }, 36000);
       return;
@@ -588,7 +743,7 @@
           onCallConnected(activeCall);
         }
       } catch (_) {
-        endActiveCall(true, "Failed to establish voice connection");
+        endActiveCall(true, "Failed to establish call connection");
       }
     } else if (data.type === "call_ice") {
       if (data.candidate) {
@@ -611,7 +766,7 @@
     }
   });
 
-  // ===== Render OLED Voice Call Screen & Minimized Bar =====
+  // ===== Render OLED Voice & Video Call Screen =====
   function renderCallUI() {
     const call = activeCall;
     const oldOv = document.getElementById("tcVoiceCallOverlay");
@@ -623,9 +778,12 @@
       return;
     }
 
+    const isVideo = call.callType === "video";
     const statusLabel =
       call.state === "incoming"
-        ? "Incoming voice call..."
+        ? isVideo
+          ? "Incoming video call..."
+          : "Incoming voice call..."
         : call.state === "calling"
         ? "Calling..."
         : call.state === "ringing"
@@ -634,7 +792,7 @@
         ? "Connecting..."
         : formatDuration(Math.floor((Date.now() - call.connectedAt) / 1000));
 
-    // Minimized top bar so user can still chat during active call
+    // Minimized top bar
     if (call.minimized) {
       if (oldOv) oldOv.remove();
       let bar = oldBar;
@@ -672,69 +830,127 @@
       ov.className = "tc-vc-overlay";
       document.body.appendChild(ov);
     }
+    ov.classList.toggle("tc-vc-video-mode", isVideo);
 
     const avInner = call.peerAvatar
       ? `<img src="${esc(call.peerAvatar)}" alt="${esc(call.peerName)}" />`
       : `<div class="tc-vc-av-fb" style="background:${esc(call.peerColor)}">${esc((call.peerName || "U")[0].toUpperCase())}</div>`;
 
     const isPulsing = call.state === "calling" || call.state === "ringing" || call.state === "incoming";
+    const showRemoteStage = isVideo && call.hasRemoteVideo && call.state === "connected";
+    const showLocalPip = isVideo && call.localStream && !call.cameraOff;
 
-    const controlsHtml =
-      call.state === "incoming"
-        ? `
-          <div class="tc-vc-controls tc-vc-incoming-ctrls">
-            <div class="tc-vc-btn-col">
-              <button type="button" class="tc-vc-round-btn tc-vc-decline" id="tcVcDeclineBtn" aria-label="Decline">
-                ${ICONS.phone}
-              </button>
-              <span>Decline</span>
-            </div>
-            <div class="tc-vc-btn-col">
-              <button type="button" class="tc-vc-round-btn tc-vc-accept" id="tcVcAcceptBtn" aria-label="Accept">
-                ${ICONS.phone}
-              </button>
-              <span>Accept</span>
-            </div>
+    let controlsHtml = "";
+    if (call.state === "incoming") {
+      controlsHtml = `
+        <div class="tc-vc-controls tc-vc-incoming-ctrls">
+          <div class="tc-vc-btn-col">
+            <button type="button" class="tc-vc-round-btn tc-vc-decline" id="tcVcDeclineBtn" aria-label="Decline">
+              ${ICONS.phone}
+            </button>
+            <span>Decline</span>
           </div>
-        `
-        : `
-          <div class="tc-vc-controls">
-            <div class="tc-vc-btn-col">
-              <button type="button" class="tc-vc-round-btn ${call.speakerOn ? "active" : ""}" id="tcVcSpeakerBtn" aria-label="Speaker">
-                ${ICONS.speaker}
-              </button>
-              <span>Speaker</span>
-            </div>
-            <div class="tc-vc-btn-col">
-              <button type="button" class="tc-vc-round-btn ${call.muted ? "active-warn" : ""}" id="tcVcMuteBtn" aria-label="Mute">
-                ${call.muted ? ICONS.micOff : ICONS.micOn}
-              </button>
-              <span>${call.muted ? "Unmute" : "Mute"}</span>
-            </div>
-            <div class="tc-vc-btn-col">
-              <button type="button" class="tc-vc-round-btn tc-vc-decline" id="tcVcEndBtn" aria-label="End Call">
-                ${ICONS.phone}
-              </button>
-              <span>End</span>
-            </div>
+          <div class="tc-vc-btn-col">
+            <button type="button" class="tc-vc-round-btn tc-vc-accept" id="tcVcAcceptBtn" aria-label="Accept">
+              ${isVideo ? ICONS.videoOn : ICONS.phone}
+            </button>
+            <span>Accept</span>
           </div>
-        `;
+        </div>
+      `;
+    } else if (isVideo) {
+      controlsHtml = `
+        <div class="tc-vc-controls tc-vc-video-ctrls">
+          <div class="tc-vc-btn-col">
+            <button type="button" class="tc-vc-round-btn" id="tcVcFlipBtn" aria-label="Flip Camera">
+              ${ICONS.flipCam}
+            </button>
+            <span>Flip</span>
+          </div>
+          <div class="tc-vc-btn-col">
+            <button type="button" class="tc-vc-round-btn ${call.cameraOff ? "active-warn" : ""}" id="tcVcCamBtn" aria-label="Camera">
+              ${call.cameraOff ? ICONS.videoOff : ICONS.videoOn}
+            </button>
+            <span>${call.cameraOff ? "Cam Off" : "Camera"}</span>
+          </div>
+          <div class="tc-vc-btn-col">
+            <button type="button" class="tc-vc-round-btn ${call.muted ? "active-warn" : ""}" id="tcVcMuteBtn" aria-label="Mute">
+              ${call.muted ? ICONS.micOff : ICONS.micOn}
+            </button>
+            <span>${call.muted ? "Unmute" : "Mute"}</span>
+          </div>
+          <div class="tc-vc-btn-col">
+            <button type="button" class="tc-vc-round-btn tc-vc-decline" id="tcVcEndBtn" aria-label="End Call">
+              ${ICONS.phone}
+            </button>
+            <span>End</span>
+          </div>
+        </div>
+      `;
+    } else {
+      controlsHtml = `
+        <div class="tc-vc-controls">
+          <div class="tc-vc-btn-col">
+            <button type="button" class="tc-vc-round-btn ${call.speakerOn ? "active" : ""}" id="tcVcSpeakerBtn" aria-label="Speaker">
+              ${ICONS.speaker}
+            </button>
+            <span>Speaker</span>
+          </div>
+          <div class="tc-vc-btn-col">
+            <button type="button" class="tc-vc-round-btn ${call.muted ? "active-warn" : ""}" id="tcVcMuteBtn" aria-label="Mute">
+              ${call.muted ? ICONS.micOff : ICONS.micOn}
+            </button>
+            <span>${call.muted ? "Unmute" : "Mute"}</span>
+          </div>
+          <div class="tc-vc-btn-col">
+            <button type="button" class="tc-vc-round-btn tc-vc-decline" id="tcVcEndBtn" aria-label="End Call">
+              ${ICONS.phone}
+            </button>
+            <span>End</span>
+          </div>
+        </div>
+      `;
+    }
 
     ov.innerHTML = `
+      ${
+        isVideo
+          ? `<video id="tcRemoteCallVideo" class="tc-vc-remote-vid ${showRemoteStage ? "visible" : ""}" autoplay playsinline muted></video>`
+          : ""
+      }
+      ${
+        showLocalPip
+          ? `<div class="tc-vc-pip-box">
+               <video id="tcLocalCallVideo" class="tc-vc-local-vid ${call.facingMode === "user" ? "mirrored" : ""}" autoplay playsinline muted></video>
+             </div>`
+          : ""
+      }
       <div class="tc-vc-shell">
         <div class="tc-vc-top">
           <button type="button" class="tc-vc-min-btn" id="tcVcMinBtn" title="Minimize">${ICONS.minimize}</button>
-          <div class="tc-vc-badge">Voice Call</div>
-          <div style="width:40px;"></div>
+          <div class="tc-vc-top-meta">
+            <div class="tc-vc-badge">${isVideo ? "Video Call" : "Voice Call"}</div>
+            ${
+              showRemoteStage
+                ? `<div class="tc-vc-top-name">${esc(call.peerName)}</div>
+                   <div class="tc-vc-top-timer" id="tcCallStatusTxt">${esc(statusLabel)}</div>`
+                : ""
+            }
+          </div>
+          <div style="width:42px;"></div>
         </div>
 
-        <div class="tc-vc-center">
-          <div class="tc-vc-ring-wrap ${isPulsing ? "pulsing" : ""}">
-            <div class="tc-vc-avatar">${avInner}</div>
-          </div>
-          <div class="tc-vc-name">${esc(call.peerName)}</div>
-          <div class="tc-vc-status ${call.state === "connected" ? "live" : ""}" id="tcCallStatusTxt">${esc(statusLabel)}</div>
-        </div>
+        ${
+          showRemoteStage
+            ? `<div style="flex:1;"></div>`
+            : `<div class="tc-vc-center">
+                 <div class="tc-vc-ring-wrap ${isPulsing ? "pulsing" : ""}">
+                   <div class="tc-vc-avatar">${avInner}</div>
+                 </div>
+                 <div class="tc-vc-name">${esc(call.peerName)}</div>
+                 <div class="tc-vc-status ${call.state === "connected" ? "live" : ""}" id="tcCallStatusTxt">${esc(statusLabel)}</div>
+               </div>`
+        }
 
         ${controlsHtml}
       </div>
@@ -749,60 +965,94 @@
     const declineBtn = ov.querySelector("#tcVcDeclineBtn");
     const muteBtn = ov.querySelector("#tcVcMuteBtn");
     const spkBtn = ov.querySelector("#tcVcSpeakerBtn");
+    const camBtn = ov.querySelector("#tcVcCamBtn");
+    const flipBtn = ov.querySelector("#tcVcFlipBtn");
     const endBtn = ov.querySelector("#tcVcEndBtn");
 
     if (acceptBtn) acceptBtn.onclick = acceptIncomingCall;
     if (declineBtn) declineBtn.onclick = declineIncomingCall;
     if (muteBtn) muteBtn.onclick = toggleMute;
     if (spkBtn) spkBtn.onclick = toggleSpeaker;
+    if (camBtn) camBtn.onclick = toggleCamera;
+    if (flipBtn) flipBtn.onclick = switchCamera;
     if (endBtn) endBtn.onclick = () => endActiveCall(true, "Call ended");
+
+    attachMediaStreams();
   }
 
-  // ===== Hook Active Chat Call Button (#chat-call-btn) =====
+  // ===== Inject Video Call Button Next to #chat-call-btn =====
+  function ensureChatHeaderVideoButton() {
+    const voiceBtn = document.getElementById("chat-call-btn");
+    if (!voiceBtn || document.getElementById("chat-video-call-btn")) return;
+
+    const vidBtn = document.createElement("button");
+    vidBtn.id = "chat-video-call-btn";
+    vidBtn.type = "button";
+    vidBtn.className = voiceBtn.className || "icon-btn";
+    vidBtn.title = "Video Call";
+    vidBtn.setAttribute("aria-label", "Video Call");
+    vidBtn.innerHTML = `<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>`;
+    voiceBtn.insertAdjacentElement("afterend", vidBtn);
+  }
+
+  function triggerActiveChatCall(callType) {
+    const st = getStoreObj();
+    const chat =
+      st && typeof st.getActiveChat === "function"
+        ? st.getActiveChat()
+        : st && typeof st.getState === "function"
+        ? (st.getState().chats || []).find((c) => String(c.id) === String(st.getState().activeChatId))
+        : null;
+
+    if (!chat) {
+      toast("Open a chat first to place a call");
+      return;
+    }
+    if (chat.type !== "personal" || chat.isBot) {
+      toast(`${callType === "video" ? "Video" : "Voice"} calls are only available in 1-on-1 personal chats`);
+      return;
+    }
+
+    startCall({
+      targetUserId: chat.peerUserId || chat.otherUserId || chat.targetUserId || null,
+      chatId: chat.id,
+      name: chat.name,
+      avatarUrl: chat.avatarUrl || "",
+      color: chat.color || "",
+      callType
+    });
+  }
+
+  // Hook both Voice (#chat-call-btn) & Video (#chat-video-call-btn) header buttons
   document.addEventListener(
     "click",
     (e) => {
-      const btn = e.target.closest("#chat-call-btn");
-      if (!btn) return;
+      const voiceBtn = e.target.closest("#chat-call-btn");
+      const videoBtn = e.target.closest("#chat-video-call-btn");
+      if (!voiceBtn && !videoBtn) return;
 
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
-
-      const st = getStoreObj();
-      const chat =
-        st && typeof st.getActiveChat === "function"
-          ? st.getActiveChat()
-          : st && typeof st.getState === "function"
-          ? (st.getState().chats || []).find((c) => String(c.id) === String(st.getState().activeChatId))
-          : null;
-
-      if (!chat) {
-        toast("Open a chat first to place a call");
-        return;
-      }
-      if (chat.type !== "personal" || chat.isBot) {
-        toast("Voice calls are only available in 1-on-1 personal chats");
-        return;
-      }
-
-      startVoiceCall({
-        targetUserId: chat.peerUserId || chat.otherUserId || chat.targetUserId || null,
-        chatId: chat.id,
-        name: chat.name,
-        avatarUrl: chat.avatarUrl || "",
-        color: chat.color || ""
-      });
+      triggerActiveChatCall(videoBtn ? "video" : "voice");
     },
     true
   );
+
+  if (document.readyState === "loading") {
+    window.addEventListener("DOMContentLoaded", ensureChatHeaderVideoButton);
+  } else {
+    ensureChatHeaderVideoButton();
+  }
+  setTimeout(ensureChatHeaderVideoButton, 600);
 
   window.addEventListener("beforeunload", () => {
     if (activeCall) endActiveCall(true, "");
   });
 
   window.TCVoiceCall = {
-    startCall: startVoiceCall,
+    startCall,
+    startVideoCall: (opts) => startCall({ ...(opts || {}), callType: "video" }),
     endCall: () => endActiveCall(true, "Call ended"),
     isActive: () => Boolean(activeCall)
   };
