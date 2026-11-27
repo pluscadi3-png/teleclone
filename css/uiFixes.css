@@ -4308,3 +4308,281 @@ body {
   border-top-color: #7bc65b;
   animation: tcSpin 0.85s linear infinite;
 }
+
+/* =========================================================
+   REAL-TIME WEBRTC VOICE CALL OVERLAY (OLED DARK)
+   ========================================================= */
+
+.tc-vc-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10350;
+  background: radial-gradient(circle at 50% 28%, #162619 0%, #050608 58%, #000000 100%);
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+}
+
+.tc-vc-shell {
+  width: 100%;
+  max-width: 480px;
+  height: 100%;
+  margin: 0 auto;
+  padding: 18px 22px 42px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.tc-vc-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tc-vc-min-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.tc-vc-min-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
+.tc-vc-badge {
+  font-size: 13px;
+  font-weight: 600;
+  color: #9ca3af;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.tc-vc-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-top: -20px;
+}
+
+.tc-vc-ring-wrap {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 22px;
+}
+
+.tc-vc-ring-wrap.pulsing::before,
+.tc-vc-ring-wrap.pulsing::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid rgba(103, 179, 70, 0.55);
+  animation: tcVcPulse 1.9s ease-out infinite;
+}
+
+.tc-vc-ring-wrap.pulsing::after {
+  animation-delay: 0.85s;
+}
+
+@keyframes tcVcPulse {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  100% { transform: scale(1.42); opacity: 0; }
+}
+
+.tc-vc-avatar {
+  width: 126px;
+  height: 126px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.65);
+  position: relative;
+  z-index: 2;
+}
+
+.tc-vc-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.tc-vc-av-fb {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 46px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.tc-vc-name {
+  font-size: 27px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 6px;
+}
+
+.tc-vc-status {
+  font-size: 16px;
+  color: #9ca3af;
+  font-variant-numeric: tabular-nums;
+}
+
+.tc-vc-status.live {
+  color: #7bc65b;
+  font-weight: 600;
+}
+
+.tc-vc-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  padding: 16px 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 28px;
+}
+
+.tc-vc-incoming-ctrls {
+  justify-content: space-around;
+  padding: 20px 16px;
+}
+
+.tc-vc-btn-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
+.tc-vc-round-btn {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  border: none;
+  background: #232630;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.15s ease;
+}
+
+.tc-vc-round-btn:active {
+  transform: scale(0.93);
+}
+
+.tc-vc-round-btn svg {
+  width: 26px;
+  height: 26px;
+}
+
+.tc-vc-round-btn.active {
+  background: #ffffff;
+  color: #111827;
+}
+
+.tc-vc-round-btn.active-warn {
+  background: #f59e0b;
+  color: #111827;
+}
+
+.tc-vc-round-btn.tc-vc-accept {
+  background: #22c55e;
+  color: #ffffff;
+}
+
+.tc-vc-round-btn.tc-vc-decline {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.tc-vc-round-btn.tc-vc-decline svg {
+  transform: rotate(135deg);
+}
+
+/* Minimized Active Call Top Banner */
+.tc-vc-minibar {
+  position: fixed;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 20px);
+  max-width: 480px;
+  z-index: 10340;
+  background: #1c3a22;
+  border: 1px solid rgba(123, 198, 91, 0.45);
+  color: #ffffff;
+  border-radius: 16px;
+  padding: 9px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  box-sizing: border-box;
+}
+
+.tc-vc-mini-left {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.tc-vc-mini-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #4ade80;
+  flex-shrink: 0;
+}
+
+.tc-vc-mini-name {
+  font-weight: 700;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tc-vc-mini-time {
+  font-size: 13px;
+  color: #bbf7d0;
+  font-variant-numeric: tabular-nums;
+}
+
+.tc-vc-mini-end {
+  border: none;
+  background: #ef4444;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 12.5px;
+  padding: 6px 13px;
+  border-radius: 99px;
+  cursor: pointer;
+}

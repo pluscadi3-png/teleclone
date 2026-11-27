@@ -322,6 +322,21 @@
   }
 
   async function handleStartCall(state, callType) {
+    if (callType === "voice" && window.TCVoiceCall) {
+      if (state.isGroupOrChannel) {
+        toast("Voice calls are only available in 1-on-1 personal chats");
+        return;
+      }
+      closePeerProfile();
+      window.TCVoiceCall.startCall({
+        targetUserId: state.userId,
+        chatId: state.chatId,
+        name: state.name,
+        avatarUrl: state.avatarUrl,
+        color: state.color
+      });
+      return;
+    }
     // Log call in backend calls history
     apiReq("/api/calls/log", {
       method: "POST",

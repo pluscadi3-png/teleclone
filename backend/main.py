@@ -17,7 +17,7 @@ from backend.bot_api import (
 from backend.chats import register_bot_hooks, router as chats_router, run_expiry_watcher,  UPLOAD_DIR
 from backend.stories import router as stories_router
 from backend.social_api import router as social_router
-from backend.database import init_db
+from backend.database import get_conn, init_db
 from backend.ws_manager import ws_manager
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -66,6 +66,25 @@ def health_check():
     return {"ok": True, "status": "online", "service": "teleclone"}
 
 
+@app.get("/api/calls/ice")
+def get_call_ice_servers():
+    servers = [
+        {"urls": "stun:stun.l.google.com:19302"},
+        {"urls": "stun:stun1.l.google.com:19302"},
+        {"urls": "stun:stun2.l.google.com:19302"},
+        {"urls": "stun:stun.cloudflare.com:3478"},
+    ]
+    turn_url = os.getenv("TURN_URL", "").strip()
+    if turn_url:
+        entry = {"urls": turn_url}
+        if os.getenv("TURN_USERNAME", "").strip():
+            entry["username"] = os.getenv("TURN_USERNAME", "").strip()
+        if os.getenv("TURN_CREDENTIAL", "").strip():
+            entry["credential"] = os.getenv("TURN_CREDENTIAL", "").strip()
+        servers.append(entry)
+    return {"ok": True, "iceServers": servers}
+
+
 # ==================== REAL-TIME WEBSOCKET ENDPOINT ====================
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket, token: str = Query(default="")):
@@ -90,6 +109,69 @@ async def websocket_endpoint(ws: WebSocket, token: str = Query(default="")):
                     )
             elif ev_type == "ping":
                 await ws.send_json({"type": "pong"})
+            elif ev_type in {
+                "call_offer",
+                "call_answer",
+                "call_ice",
+                "call_ringing",
+                "call_reject",
+                "call_end",
+                "call_busy",
+            }:
+                target_id = data.get("targetUserId")
+                chat_id = data.get("chatId")
+
+                if not target_id and chat_id:
+                    conn = get_conn()
+                    try:
+                        row = conn.execute(
+                            "SELECT user_id FROM chat_members WHERE chat_id = ? AND user_id != ? LIMIT 1",
+                            (int(chat_id), user_id),
+                        ).fetchone()
+                        if row:
+                            target_id = row["user_id"]
+                    finally:
+                        conn.close()
+
+                if not target_id:
+                    if ev_type == "call_offer":
+                        await ws.send_json({"type": "call_offline", "callId": data.get("callId")})
+                    continue
+
+                target_id = int(target_id)
+                if ev_type == "call_offer" and not ws_manager.is_online(target_id):
+                    await ws.send_json(
+                        {
+                            "type": "call_offline",
+                            "callId": data.get("callId"),
+                            "targetUserId": target_id,
+                        }
+                    )
+                    continue
+
+                relay = dict(data)
+                relay["fromUserId"] = user_id
+                relay["targetUserId"] = target_id
+
+                if ev_type == "call_offer":
+                    conn = get_conn()
+                    try:
+                        u = conn.execute(
+                            "SELECT id, name, username, avatar_color, avatar_url FROM users WHERE id = ?",
+                            (user_id,),
+                        ).fetchone()
+                        if u:
+                            relay["caller"] = {
+                                "id": u["id"],
+                                "name": u["name"],
+                                "username": u["username"] or "",
+                                "avatarColor": u["avatar_color"] or "linear-gradient(135deg,#334155,#1e293b)",
+                                "avatarUrl": u["avatar_url"] if "avatar_url" in u.keys() and u["avatar_url"] else "",
+                            }
+                    finally:
+                        conn.close()
+
+                await ws_manager.send_to_user(target_id, relay)
     except WebSocketDisconnect:
         await ws_manager.disconnect(user_id, ws)
     except Exception:

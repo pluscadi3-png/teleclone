@@ -164,6 +164,19 @@
   }
 
   // ==================== 5. REAL-TIME WEBSOCKET ENGINE ====================
+  window.TCWS = {
+    send(payload) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(payload));
+        return true;
+      }
+      return false;
+    },
+    isOpen() {
+      return Boolean(ws && ws.readyState === WebSocket.OPEN);
+    }
+  };
+
   function connectWebSocket() {
     const token = getToken();
     if (!token) return;
@@ -191,6 +204,11 @@
       }
 
       const state = Store.getState();
+
+      if (data && typeof data.type === "string" && data.type.startsWith("call_")) {
+        window.dispatchEvent(new CustomEvent("tc-call-signal", { detail: data }));
+        return;
+      }
 
       if (data.type === "new_message") {
         const cid = String(data.chatId);

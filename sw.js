@@ -1,4 +1,4 @@
-const SHELL_CACHE = "teleclone-shell-v18";
+const SHELL_CACHE = "teleclone-shell-v19";
 const API_CACHE = "teleclone-api-v1";
 const MEDIA_CACHE = "teleclone-media-v1";
 
