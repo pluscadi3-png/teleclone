@@ -105,8 +105,7 @@
     if (!token) return;
 
     const elapsedSec = call.connectedAt ? Math.max(1, Math.round((Date.now() - call.connectedAt) / 1000)) : 0;
-    const finalStatus =
-      statusOverride || (call.direction === "incoming" ? (elapsedSec > 0 ? "incoming" : "missed") : "outgoing");
+    const finalStatus = statusOverride || (elapsedSec > 0 ? "completed" : "missed");
 
     fetch("/api/calls/log", {
       method: "POST",
@@ -115,6 +114,8 @@
         Authorization: `Bearer ${token}`
       },
       body: JSON.stringify({
+        callId: call.callId || "",
+        direction: call.direction || "outgoing",
         targetUserId: call.targetUserId ? Number(call.targetUserId) : null,
         chatId: call.chatId ? Number(call.chatId) : null,
         callType: call.callType === "video" ? "video" : "voice",
@@ -555,9 +556,7 @@
       });
     }
 
-    if (call.direction === "outgoing" || call.connectedAt > 0 || historyStatus === "missed") {
-      logCallHistory(call, historyStatus);
-    }
+    logCallHistory(call, historyStatus);
 
     if (call.localStream) {
       call.localStream.getTracks().forEach((t) => {

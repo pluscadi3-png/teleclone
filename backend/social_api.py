@@ -22,16 +22,9 @@ class LogCallReq(BaseModel):
     chatId: Optional[int] = None
     callType: str = "voice"
     status: str = "completed"
-    duration: str = "0:00"
-
-
-def fmt_call_time(ts: int) -> str:
-    dt = datetime.fromtimestamp(ts)
-    today = datetime.now().date()
-    time_part = dt.strftime("%I:%M %p").lstrip("0")
-    if dt.date() == today:
-        return f"Today, {time_part}"
-    return dt.strftime("%b %d, ") + time_part
+    duration: str = "00:00"
+    callId: Optional[str] = None
+    direction: Optional[str] = None
 
 
 # ==================== CONTACTS ====================
@@ -160,14 +153,119 @@ def remove_contact(contact_user_id: int, user: dict = Depends(get_current_user))
 
 
 # ==================== CALLS ====================
+_CALL_LOGS_SCHEMA_READY = False
+
+
+def _ensure_call_logs_schema(conn):
+    global _CALL_LOGS_SCHEMA_READY
+    if _CALL_LOGS_SCHEMA_READY:
+        return
+    try:
+        conn.execute("ALTER TABLE call_logs ADD COLUMN call_key TEXT DEFAULT ''")
+    except Exception:
+        pass
+    try:
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_call_logs_key ON call_logs(call_key)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_call_logs_users ON call_logs(caller_id, callee_id, id DESC)")
+        conn.commit()
+    except Exception:
+        pass
+    _CALL_LOGS_SCHEMA_READY = True
+
+
+def _parse_duration_secs(dur: str) -> int:
+    try:
+        parts = [int(p) for p in str(dur or "0:00").strip().split(":")]
+        if len(parts) == 2:
+            return parts[0] * 60 + parts[1]
+        if len(parts) == 3:
+            return parts[0] * 3600 + parts[1] * 60 + parts[2]
+    except Exception:
+        pass
+    return 0
+
+
+def upsert_call_log(
+    conn,
+    caller_id: int,
+    callee_id: int,
+    call_type: str = "voice",
+    status: str = "missed",
+    duration: str = "00:00",
+    call_key: str = "",
+    created_at: Optional[int] = None,
+):
+    if not caller_id or not callee_id or int(caller_id) == int(callee_id):
+        return None
+    _ensure_call_logs_schema(conn)
+
+    cid = int(caller_id)
+    rid = int(callee_id)
+    ctype = "video" if str(call_type or "").lower() == "video" else "voice"
+    raw_st = str(status or "").lower().strip()
+    dur_str = str(duration or "00:00").strip() or "00:00"
+    dur_secs = _parse_duration_secs(dur_str)
+
+    if raw_st in ("completed", "answered", "picked"):
+        norm_status = "completed"
+    elif raw_st in ("missed", "declined", "rejected", "cancelled", "offline", "busy"):
+        norm_status = "missed"
+    else:
+        norm_status = "completed" if dur_secs > 0 else "missed"
+
+    key = str(call_key or "").strip()[:80]
+    now_ts = int(created_at or time.time())
+
+    existing = None
+    if key:
+        existing = conn.execute(
+            "SELECT * FROM call_logs WHERE call_key = ? ORDER BY id DESC LIMIT 1",
+            (key,),
+        ).fetchone()
+    if not existing:
+        existing = conn.execute(
+            """
+            SELECT * FROM call_logs
+            WHERE caller_id = ? AND callee_id = ? AND created_at >= ?
+            ORDER BY id DESC LIMIT 1
+            """,
+            (cid, rid, now_ts - 10),
+        ).fetchone()
+
+    if existing:
+        old_st = str(existing["status"] or "").lower()
+        final_st = "completed" if (old_st == "completed" or norm_status == "completed") else "missed"
+        old_secs = _parse_duration_secs(existing["duration"])
+        final_dur = dur_str if dur_secs >= old_secs else (existing["duration"] or "00:00")
+        final_type = "video" if (existing["call_type"] == "video" or ctype == "video") else "voice"
+        conn.execute(
+            "UPDATE call_logs SET call_type = ?, status = ?, duration = ?, call_key = COALESCE(NULLIF(call_key, ''), ?) WHERE id = ?",
+            (final_type, final_st, final_dur, key, existing["id"]),
+        )
+        conn.commit()
+        return existing["id"]
+
+    cur = conn.execute(
+        """
+        INSERT INTO call_logs (caller_id, callee_id, call_type, status, duration, created_at, call_key)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (cid, rid, ctype, norm_status, dur_str, now_ts, key),
+    )
+    conn.commit()
+    return cur.lastrowid
+
+
 @router.get("/calls")
 def list_calls(user: dict = Depends(get_current_user)):
     conn = get_conn()
     try:
+        _ensure_call_logs_schema(conn)
         rows = conn.execute(
             """
             SELECT cl.*,
-                   u.id AS peer_id, u.name AS peer_name, u.username AS peer_username, u.avatar_color AS peer_color
+                   u.id AS peer_id, u.name AS peer_name, u.username AS peer_username,
+                   u.avatar_color AS peer_color, u.avatar_url AS peer_avatar
             FROM call_logs cl
             JOIN users u ON u.id = CASE WHEN cl.caller_id = ? THEN cl.callee_id ELSE cl.caller_id END
             WHERE cl.caller_id = ? OR cl.callee_id = ?
@@ -188,6 +286,7 @@ def list_calls(user: dict = Depends(get_current_user)):
                     "username": "@" + r["peer_username"].lstrip("@"),
                     "initials": make_initials(r["peer_name"]),
                     "color": r["peer_color"],
+                    "avatarUrl": r["peer_avatar"] if "peer_avatar" in r.keys() and r["peer_avatar"] else "",
                     "callType": r["call_type"],
                     "direction": direction,
                     "status": r["status"],
@@ -213,22 +312,31 @@ def log_call(body: LogCallReq, user: dict = Depends(get_current_user)):
             if peer:
                 target_id = peer["user_id"]
 
-        if not target_id or target_id == user["id"]:
+        if not target_id or int(target_id) == int(user["id"]):
             return {"ok": True}
 
-        conn.execute(
-            """
-            INSERT INTO call_logs (caller_id, callee_id, call_type, status, duration, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (user["id"], target_id, body.callType, body.status, body.duration, int(time.time())),
+        if str(body.direction or "").lower() == "incoming":
+            caller_id = int(target_id)
+            callee_id = int(user["id"])
+        else:
+            caller_id = int(user["id"])
+            callee_id = int(target_id)
+
+        upsert_call_log(
+            conn,
+            caller_id=caller_id,
+            callee_id=callee_id,
+            call_type=body.callType,
+            status=body.status,
+            duration=body.duration,
+            call_key=body.callId or "",
         )
-        conn.commit()
         return {"ok": True}
     finally:
         conn.close()
 
-        # ==================== PROFILE PHOTO & POSTS ====================
+
+# ==================== PROFILE PHOTO & POSTS ====================
 class ProfilePhotoReq(BaseModel):
     avatarUrl: str = ""
 

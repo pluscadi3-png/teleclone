@@ -4799,3 +4799,32 @@ body {
   }
 }
 /* === TC_CHAT_HEADER_MOBILE_FIX_END === */
+
+/* === TC_ONLINE_DOT_FIX_START === */
+.chat-avatar-wrap,
+.avatar-wrap,
+div:has(> .online-indicator) {
+  position: relative !important;
+  overflow: visible !important;
+  flex-shrink: 0 !important;
+}
+
+.online-indicator {
+  position: absolute !important;
+  bottom: 1px !important;
+  right: 1px !important;
+  width: 14px !important;
+  height: 14px !important;
+  border-radius: 50% !important;
+  background-color: #22c55e !important;
+  border: 2.5px solid var(--bg-primary, #000000) !important;
+  box-sizing: border-box !important;
+  z-index: 6 !important;
+  pointer-events: none !important;
+  display: block !important;
+}
+
+.chat-item.active .online-indicator {
+  border-color: var(--bg-active-chat, #1d2733) !important;
+}
+/* === TC_ONLINE_DOT_FIX_END === */

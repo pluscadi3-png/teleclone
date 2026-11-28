@@ -16,7 +16,7 @@ from backend.bot_api import (
 )
 from backend.chats import register_bot_hooks, router as chats_router, run_expiry_watcher,  UPLOAD_DIR
 from backend.stories import router as stories_router
-from backend.social_api import router as social_router
+from backend.social_api import router as social_router, upsert_call_log
 from backend.push import notify_incoming_call, router as push_router
 from backend.database import get_conn, init_db
 from backend.ws_manager import ws_manager
@@ -141,6 +141,34 @@ async def websocket_endpoint(ws: WebSocket, token: str = Query(default="")):
                     continue
 
                 target_id = int(target_id)
+                if ev_type == "call_offer":
+                    conn = get_conn()
+                    try:
+                        upsert_call_log(
+                            conn,
+                            caller_id=user_id,
+                            callee_id=target_id,
+                            call_type=data.get("callType", "voice"),
+                            status="missed",
+                            duration="00:00",
+                            call_key=str(data.get("callId") or ""),
+                        )
+                    finally:
+                        conn.close()
+                elif ev_type == "call_answer":
+                    conn = get_conn()
+                    try:
+                        upsert_call_log(
+                            conn,
+                            caller_id=target_id,
+                            callee_id=user_id,
+                            call_type=data.get("callType", "voice"),
+                            status="completed",
+                            duration="00:01",
+                            call_key=str(data.get("callId") or ""),
+                        )
+                    finally:
+                        conn.close()
                 if ev_type == "call_offer" and not ws_manager.is_online(target_id):
                     conn = get_conn()
                     try:
