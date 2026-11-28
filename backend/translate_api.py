@@ -31,6 +31,12 @@ LANG_NAMES = {
     "pt": "Portuguese",
 }
 
+BROWSER_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/128.0.0.0 Safari/537.36"
+)
+
 _TR_CACHE = OrderedDict()
 _TR_CACHE_MAX = 1200
 
@@ -39,6 +45,19 @@ class TranslateReq(BaseModel):
     text: str
     sourceLang: str = "auto"
     targetLang: str = "en"
+
+
+def _get_groq_key() -> str:
+    return (os.environ.get("GROQ_API_KEY") or os.environ.get("GROQ_KEY") or "").strip()
+
+
+def _get_gemini_key() -> str:
+    return (
+        os.environ.get("GEMINI_API_KEY")
+        or os.environ.get("GOOGLE_API_KEY")
+        or os.environ.get("GEMINI_KEY")
+        or ""
+    ).strip()
 
 
 def _cache_get(key: str):
@@ -77,58 +96,64 @@ def _build_prompt(text: str, src_code: str, tgt_code: str) -> tuple:
     return sys_msg, text
 
 
-def _get_groq_key() -> str:
-    return _get_groq_key() or os.getenv("GROQ_KEY", "").strip()
-
-
 def _call_groq(text: str, src_code: str, tgt_code: str) -> str:
     api_key = _get_groq_key()
     if not api_key:
         return ""
-    model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip() or "llama-3.3-70b-versatile"
+    primary = (os.environ.get("GROQ_MODEL") or "llama-3.3-70b-versatile").strip() or "llama-3.3-70b-versatile"
+    models = [primary]
+    if primary != "llama-3.1-8b-instant":
+        models.append("llama-3.1-8b-instant")
+
     sys_msg, user_msg = _build_prompt(text, src_code, tgt_code)
-    payload = json.dumps(
-        {
-            "model": model,
-            "temperature": 0.2,
-            "max_tokens": 512,
-            "messages": [
-                {"role": "system", "content": sys_msg},
-                {"role": "user", "content": user_msg},
-            ],
-        }
-    ).encode("utf-8")
+    last_err = None
 
-    req = urllib.request.Request(
-        "https://api.groq.com/openai/v1/chat/completions",
-        data=payload,
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
-            "Accept": "application/json",
-        },
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=12) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
-        out = data["choices"][0]["message"]["content"]
-        return _clean_ai_output(out, text)
+    for model in models:
+        try:
+            payload = json.dumps(
+                {
+                    "model": model,
+                    "temperature": 0.2,
+                    "max_tokens": 512,
+                    "messages": [
+                        {"role": "system", "content": sys_msg},
+                        {"role": "user", "content": user_msg},
+                    ],
+                }
+            ).encode("utf-8")
 
+            req = urllib.request.Request(
+                "https://api.groq.com/openai/v1/chat/completions",
+                data=payload,
+                headers={
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "Authorization": f"Bearer {api_key}",
+                    "User-Agent": BROWSER_UA,
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                out = data["choices"][0]["message"]["content"]
+                cleaned = _clean_ai_output(out, text)
+                if cleaned:
+                    return cleaned
+        except Exception as e:
+            last_err = e
+            print(f"[translate] Groq ({model}) error:", e)
+            continue
 
-def _get_gemini_key() -> str:
-    return (
-        _get_gemini_key()
-        or os.getenv("GOOGLE_API_KEY", "").strip()
-        or os.getenv("GEMINI_KEY", "").strip()
-    )
+    if last_err:
+        raise last_err
+    return ""
 
 
 def _call_gemini(text: str, src_code: str, tgt_code: str) -> str:
     api_key = _get_gemini_key()
     if not api_key:
         return ""
-    primary = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
+    primary = (os.environ.get("GEMINI_MODEL") or "gemini-2.5-flash").strip() or "gemini-2.5-flash"
     models = [primary]
     if primary != "gemini-2.0-flash":
         models.append("gemini-2.0-flash")
@@ -138,10 +163,14 @@ def _call_gemini(text: str, src_code: str, tgt_code: str) -> str:
 
     for model in models:
         try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{urllib.parse.quote(model)}:generateContent?key={urllib.parse.quote(api_key)}"
+            url = (
+                f"https://generativelanguage.googleapis.com/v1beta/models/"
+                f"{urllib.parse.quote(model)}:generateContent?key={urllib.parse.quote(api_key)}"
+            )
             gen_cfg = {"temperature": 0.2, "maxOutputTokens": 512}
             if "2.5" in model:
                 gen_cfg["thinkingConfig"] = {"thinkingBudget": 0}
+
             payload = json.dumps(
                 {
                     "systemInstruction": {"parts": [{"text": sys_msg}]},
@@ -153,7 +182,11 @@ def _call_gemini(text: str, src_code: str, tgt_code: str) -> str:
             req = urllib.request.Request(
                 url,
                 data=payload,
-                headers={"Content-Type": "application/json", "User-Agent": "TeleClone/1.0"},
+                headers={
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "User-Agent": BROWSER_UA,
+                },
                 method="POST",
             )
             with urllib.request.urlopen(req, timeout=12) as resp:
@@ -181,7 +214,7 @@ def _call_google_fallback(text: str, src_code: str, tgt_code: str) -> str:
     )
     req = urllib.request.Request(
         f"https://translate.googleapis.com/translate_a/single?{q}",
-        headers={"User-Agent": "Mozilla/5.0"},
+        headers={"User-Agent": BROWSER_UA},
         method="GET",
     )
     with urllib.request.urlopen(req, timeout=10) as resp:
