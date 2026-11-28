@@ -187,8 +187,31 @@
     }
   }
 
-  async function syncChats() {
-    if (_syncChatsPromise) return _syncChatsPromise;
+  function ensureChatInStore(rawChat) {
+    if (!rawChat || rawChat.id === undefined || rawChat.id === null) return null;
+    const state = Store.getState();
+    if (!Array.isArray(state.chats)) state.chats = [];
+    const cid = String(rawChat.id);
+    const idx = state.chats.findIndex((c) => String(c.id) === cid);
+    const prevMsgs = idx !== -1 && Array.isArray(state.chats[idx].messages) ? state.chats[idx].messages : [];
+    const normalized = normalizeChat(rawChat, prevMsgs);
+    if (idx !== -1) {
+      normalized._messagesLoaded = Boolean(state.chats[idx]._messagesLoaded);
+      normalized._hasMore = state.chats[idx]._hasMore !== undefined ? state.chats[idx]._hasMore : true;
+      state.chats[idx] = normalized;
+    } else {
+      normalized._messagesLoaded = false;
+      normalized._hasMore = true;
+      state.chats.unshift(normalized);
+    }
+    return normalized;
+  }
+
+  async function syncChats(force = false) {
+    if (_syncChatsPromise) {
+      await _syncChatsPromise;
+      if (!force) return;
+    }
     _syncChatsPromise = (async () => {
       const res = await api("/api/chats");
       const state = Store.getState();
@@ -238,12 +261,21 @@
       if (!chat) return;
 
       const serverMsgs = (res.messages || []).map(normalizeMessage);
-      const pendingLocal = (chat.messages || []).filter(
-        (m) => m && (m._pending || String(m.id || "").startsWith("temp_"))
-      );
-      const merged = serverMsgs.concat(
-        pendingLocal.filter((p) => !serverMsgs.some((s) => String(s.id) === String(p.id)))
-      );
+      const serverIds = new Set(serverMsgs.map((s) => String(s.id)));
+      const maxServerNumId = serverMsgs.reduce((mx, s) => {
+        const n = Number(s.id);
+        return Number.isFinite(n) && n > mx ? n : mx;
+      }, 0);
+      const nowKeep = Date.now();
+      const extraLocal = (chat.messages || []).filter((m) => {
+        if (!m || serverIds.has(String(m.id))) return false;
+        if (m._pending || String(m.id || "").startsWith("temp_")) return true;
+        if (m._justConfirmedAt && nowKeep - m._justConfirmedAt < 25000) return true;
+        const numId = Number(m.id);
+        if (Number.isFinite(numId) && numId > maxServerNumId) return true;
+        return false;
+      });
+      const merged = serverMsgs.concat(extraLocal);
 
       const newSig = msgListSignature(merged);
       const prevSig = _renderedMsgSig.get(cid);
@@ -407,8 +439,10 @@
             ? window.TCOptimistic.reconcileIncoming(cid, msg)
             : false;
         if (!reconciled && !chat.messages.some((m) => String(m.id) === msg.id)) {
+          msg._justConfirmedAt = Date.now();
           chat.messages.push(msg);
         }
+        _renderedMsgSig.set(cid, msgListSignature(chat.messages));
 
         const preview =
           msg.text ||
@@ -418,7 +452,7 @@
         chat.lastTime = msg.time;
         chat.lastTimestamp = msg.timestamp || Date.now();
 
-        if (state.activeChatId === cid) {
+        if (String(state.activeChatId) === cid) {
           chat.unreadCount = 0;
           if (msg.sender !== "me") {
             // Mark read on server silently
@@ -569,6 +603,8 @@
         : window.TCOptimistic
         ? window.TCOptimistic.pushPending(cid, { ...msgData, attachment: cleanAtt })
         : null;
+      const _cNow = Store.getChatById(cid);
+      if (_cNow && Array.isArray(_cNow.messages)) _renderedMsgSig.set(cid, msgListSignature(_cNow.messages));
 
       (async () => {
         try {
@@ -679,7 +715,9 @@
         body: { name, description, memberIds }
       })
         .then(async (res) => {
-          await syncChats();
+          if (res.chat) ensureChatInStore(res.chat);
+          await syncChats(true).catch(() => null);
+          if (res.chat) ensureChatInStore(res.chat);
           if (res.chat && window.App) window.App.openChat(String(res.chat.id));
         })
         .catch((e) => window.App && window.App.showToast(e.message));
@@ -692,7 +730,9 @@
         body: { name, username, description }
       })
         .then(async (res) => {
-          await syncChats();
+          if (res.chat) ensureChatInStore(res.chat);
+          await syncChats(true).catch(() => null);
+          if (res.chat) ensureChatInStore(res.chat);
           if (res.chat && window.App) window.App.openChat(String(res.chat.id));
         })
         .catch((e) => window.App && window.App.showToast(e.message));
@@ -834,7 +874,9 @@
             body: { targetUserId: Number(dmItem.dataset.startDm) }
           });
           $("search-clear-btn")?.click();
-          await syncChats();
+          if (res.chat) ensureChatInStore(res.chat);
+          await syncChats(true).catch(() => null);
+          if (res.chat) ensureChatInStore(res.chat);
           if (res.chat && window.App) window.App.openChat(String(res.chat.id));
         } catch (err) {
           if (window.App) window.App.showToast(err.message);
@@ -847,7 +889,9 @@
         try {
           const res = await api(`/api/chats/${joinItem.dataset.joinChat}/join`, { method: "POST" });
           $("search-clear-btn")?.click();
-          await syncChats();
+          if (res.chat) ensureChatInStore(res.chat);
+          await syncChats(true).catch(() => null);
+          if (res.chat) ensureChatInStore(res.chat);
           if (res.chat && window.App) window.App.openChat(String(res.chat.id));
         } catch (err) {
           if (window.App) window.App.showToast(err.message);
@@ -1425,7 +1469,9 @@
           body: { targetUserId: Number(row.dataset.pickUid) }
         });
         modal.classList.add("hidden");
-        await syncChats();
+        if (res.chat) ensureChatInStore(res.chat);
+        await syncChats(true).catch(() => null);
+        if (res.chat) ensureChatInStore(res.chat);
         if (res.chat && window.App) window.App.openChat(String(res.chat.id));
       } catch (err) {
         if (window.App) window.App.showToast(err.message);

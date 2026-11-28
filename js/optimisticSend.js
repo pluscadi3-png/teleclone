@@ -80,10 +80,24 @@
     };
   }
 
+  function scrollMessagesToBottom() {
+    const el =
+      document.getElementById("messages-container") ||
+      document.getElementById("chat-messages") ||
+      document.querySelector(".messages-container");
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+      requestAnimationFrame(() => {
+        el.scrollTop = el.scrollHeight;
+      });
+    }
+  }
+
   function refreshChatUI(cid, scrollDown) {
     const activeId = getActiveChatId();
     if (activeId && String(activeId) === String(cid) && window.ChatUI) {
       window.ChatUI.renderActiveChat(!scrollDown);
+      if (scrollDown) scrollMessagesToBottom();
     }
     if (window.App && typeof window.App.renderAll === "function") {
       window.App.renderAll();
@@ -156,31 +170,60 @@
 
   // ===== 2. Upgrade Pending Bubble When Server Confirms (HTTP POST) =====
   function markSent(cid, tempId, serverMsg) {
-    if (!tempId || resolvedTempIds.has(tempId)) return;
     const chat = getChatSafe(cid);
-    if (!chat || !Array.isArray(chat.messages)) return;
+    if (!chat) return;
+    if (!Array.isArray(chat.messages)) chat.messages = [];
 
-    const idx = chat.messages.findIndex((m) => m._tempId === tempId || String(m.id) === String(tempId));
-    if (idx === -1) return;
+    const nowMs = Date.now();
+    const idx = tempId
+      ? chat.messages.findIndex((m) => m._tempId === tempId || String(m.id) === String(tempId))
+      : -1;
+
+    if (tempId && resolvedTempIds.has(tempId) && idx === -1) {
+      // Ensure serverMsg still exists even if loadChatMessages wiped it
+      if (serverMsg && serverMsg.id && !chat.messages.some((m) => String(m.id) === String(serverMsg.id))) {
+        chat.messages.push({ ...serverMsg, status: serverMsg.status || "sent", _justConfirmedAt: nowMs });
+        refreshChatUI(cid, true);
+      }
+      return;
+    }
+
+    if (idx === -1) {
+      // Temp bubble missing (e.g. race with loadChatMessages) -> insert confirmed message directly
+      if (serverMsg && serverMsg.id) {
+        if (!chat.messages.some((m) => String(m.id) === String(serverMsg.id))) {
+          chat.messages.push({ ...serverMsg, status: serverMsg.status || "sent", _justConfirmedAt: nowMs });
+        }
+        if (tempId) resolvedTempIds.add(tempId);
+        refreshChatUI(cid, true);
+      }
+      return;
+    }
 
     const old = chat.messages[idx];
-    resolvedTempIds.add(tempId);
+    if (tempId) resolvedTempIds.add(tempId);
 
     if (serverMsg && serverMsg.id) {
-      // Duplicate check in case WS already inserted it
       const existingIdx = chat.messages.findIndex((m, i) => i !== idx && String(m.id) === String(serverMsg.id));
       if (existingIdx !== -1) {
+        chat.messages[existingIdx] = {
+          ...chat.messages[existingIdx],
+          ...serverMsg,
+          status: serverMsg.status || "sent",
+          _justConfirmedAt: nowMs
+        };
         chat.messages.splice(idx, 1);
       } else {
         chat.messages[idx] = {
           ...serverMsg,
-          status: serverMsg.status || "sent"
+          status: serverMsg.status || "sent",
+          _justConfirmedAt: nowMs
         };
       }
       releaseBlobLater(old._localUrl);
     } else {
       old._pending = false;
-      old._justConfirmedAt = Date.now();
+      old._justConfirmedAt = nowMs;
       old.status = "sent";
       if (old.attachment) delete old.attachment._uploading;
     }
@@ -249,7 +292,8 @@
     if (old._tempId) resolvedTempIds.add(old._tempId);
     chat.messages[matchIdx] = {
       ...serverMsg,
-      status: serverMsg.status || "sent"
+      status: serverMsg.status || "sent",
+      _justConfirmedAt: Date.now()
     };
     releaseBlobLater(old._localUrl);
     return true;

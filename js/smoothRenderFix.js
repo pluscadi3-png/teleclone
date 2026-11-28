@@ -322,6 +322,9 @@
           return;
         }
 
+        const _ld = document.getElementById("tcMsgLoadNotice");
+        if (_ld && _ld.parentNode === this) _ld.remove();
+
         // Same chat re-render -> Smart DOM diffing (0 blink, 0 scroll jump)
         const distFromBottom = this.scrollHeight - this.scrollTop - this.clientHeight;
         const wasNearBottom = distFromBottom < 110;
@@ -392,8 +395,19 @@
           this.lastElementChild.remove();
         }
 
-        // Scroll ko stable rakhein
-        if (wasNearBottom && appendedNewMsg) {
+        // Scroll ko stable rakhein (outgoing new message par hamesha bottom par layein)
+        const lastChildEl = this.lastElementChild;
+        const appendedMine =
+          appendedNewMsg &&
+          Boolean(
+            lastChildEl &&
+              (lastChildEl.classList.contains("outgoing") ||
+                lastChildEl.classList.contains("msg-out") ||
+                lastChildEl.classList.contains("sent") ||
+                lastChildEl.classList.contains("from-me") ||
+                lastChildEl.getAttribute("data-sender") === "me")
+          );
+        if ((wasNearBottom && appendedNewMsg) || appendedMine) {
           this.scrollTop = this.scrollHeight;
         } else if (!wasNearBottom) {
           this.scrollTop = savedScrollTop;
@@ -423,7 +437,7 @@
         // Agar user purane messages parh raha hai aur background update aaye to neeche jump na kare
         if (!effectiveKeepScroll && container && curId && curId === lastChatIdSeen) {
           const distFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-          const userSentNew = msgs.length > lastMsgCountSeen && lastMsg && lastMsg.sender === "me";
+          const userSentNew = Boolean(lastMsg && lastMsg.sender === "me" && (msgs.length > lastMsgCountSeen || lastMsg._pending || (lastMsg._justConfirmedAt && Date.now() - lastMsg._justConfirmedAt < 4000)));
           if (distFromBottom > 140 && !userSentNew) {
             effectiveKeepScroll = true;
           }
