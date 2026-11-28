@@ -42,10 +42,6 @@ public class SuggestCapacitorWebView extends CapacitorWebView {
         super(context, attrs);
     }
 
-    public SuggestCapacitorWebView(Context context, AttributeSet attrs, int defStyleAttr) {
-        super(context, attrs, defStyleAttr);
-    }
-
     @Override
     public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
         InputConnection ic = super.onCreateInputConnection(outAttrs);
