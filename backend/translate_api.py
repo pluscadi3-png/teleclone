@@ -77,8 +77,12 @@ def _build_prompt(text: str, src_code: str, tgt_code: str) -> tuple:
     return sys_msg, text
 
 
+def _get_groq_key() -> str:
+    return _get_groq_key() or os.getenv("GROQ_KEY", "").strip()
+
+
 def _call_groq(text: str, src_code: str, tgt_code: str) -> str:
-    api_key = os.getenv("GROQ_API_KEY", "").strip()
+    api_key = _get_groq_key()
     if not api_key:
         return ""
     model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip() or "llama-3.3-70b-versatile"
@@ -101,7 +105,8 @@ def _call_groq(text: str, src_code: str, tgt_code: str) -> str:
         headers={
             "Content-Type": "application/json",
             "Authorization": f"Bearer {api_key}",
-            "User-Agent": "TeleClone/1.0",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+            "Accept": "application/json",
         },
         method="POST",
     )
@@ -193,7 +198,7 @@ def _translate_sync(text: str, src_code: str, tgt_code: str) -> tuple:
     if cached:
         return cached
 
-    if os.getenv("GROQ_API_KEY", "").strip():
+    if _get_groq_key():
         try:
             out = _call_groq(text, src_code, tgt_code)
             if out:
@@ -225,7 +230,7 @@ def _translate_sync(text: str, src_code: str, tgt_code: str) -> tuple:
 
 @router.get("/translate/status")
 def translate_status(user: dict = Depends(get_current_user)):
-    if os.getenv("GROQ_API_KEY", "").strip():
+    if _get_groq_key():
         engine = "groq"
     elif _get_gemini_key():
         engine = "gemini"

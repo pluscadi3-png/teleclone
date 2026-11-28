@@ -103,6 +103,7 @@
 
   function getToken() {
     const keys = [
+      "teleclone_live_jwt",
       "teleclone_jwt",
       "teleclone_token",
       "tc_token",
@@ -465,11 +466,20 @@
   async function fetchEngineBadge(el) {
     if (!el) return;
     const token = getToken();
-    if (!token) return;
+    if (!token) {
+      el.textContent = "Not logged in (token missing)";
+      el.className = "tc-trm-engine basic";
+      return;
+    }
     try {
       const res = await fetch("/api/translate/status", {
         headers: { Authorization: "Bearer " + token }
       });
+      if (!res.ok) {
+        el.textContent = "Translator auth/server error (HTTP " + res.status + ")";
+        el.className = "tc-trm-engine basic";
+        return;
+      }
       const data = await res.json().catch(() => ({}));
       if (data.engine === "groq") {
         el.textContent = "AI Engine: Groq (Roman Urdu + Natural Chat)";
@@ -481,7 +491,10 @@
         el.textContent = "Standard Mode (Add GROQ_API_KEY in Railway for AI Roman Urdu)";
         el.className = "tc-trm-engine basic";
       }
-    } catch (_) {}
+    } catch (_) {
+      el.textContent = "Network error checking translator";
+      el.className = "tc-trm-engine basic";
+    }
   }
 
   function openTranslateModal() {
