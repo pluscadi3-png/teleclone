@@ -50,6 +50,7 @@
 
   function enableSuggestionsOnEl(el) {
     if (!el || el.nodeType !== 1) return;
+    if (el.dataset.tcSugDone === "1") return;
     const tag = el.tagName;
     if (tag !== "TEXTAREA" && tag !== "INPUT") return;
 
@@ -67,6 +68,7 @@
     el.setAttribute("autocapitalize", "sentences");
     el.setAttribute("spellcheck", "true");
     el.spellcheck = true;
+    el.dataset.tcSugDone = "1";
     if (tag === "TEXTAREA" && el.getAttribute("inputmode") === "text") {
       el.removeAttribute("inputmode");
     }

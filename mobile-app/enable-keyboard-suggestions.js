@@ -42,6 +42,10 @@ public class SuggestCapacitorWebView extends CapacitorWebView {
         super(context, attrs);
     }
 
+    public SuggestCapacitorWebView(Context context, AttributeSet attrs, int defStyleAttr) {
+        super(context, attrs, defStyleAttr);
+    }
+
     @Override
     public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
         InputConnection ic = super.onCreateInputConnection(outAttrs);
@@ -57,14 +61,20 @@ public class SuggestCapacitorWebView extends CapacitorWebView {
                 variation == InputType.TYPE_TEXT_VARIATION_URI;
 
             if (inputClass == InputType.TYPE_CLASS_TEXT && !isSensitive) {
+                // Remove BOTH flags that make Android keyboards hide the suggestion strip in WebView
                 outAttrs.inputType &= ~InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
+                outAttrs.inputType &= ~InputType.TYPE_TEXT_FLAG_AUTO_COMPLETE;
+
+                // Convert WEB_EDIT_TEXT to standard NORMAL text so all OEM keyboards show predictions
+                if (variation == InputType.TYPE_TEXT_VARIATION_WEB_EDIT_TEXT) {
+                    outAttrs.inputType &= ~InputType.TYPE_MASK_VARIATION;
+                }
+
                 outAttrs.inputType |= InputType.TYPE_TEXT_FLAG_AUTO_CORRECT;
                 outAttrs.inputType |= InputType.TYPE_TEXT_FLAG_CAP_SENTENCES;
-                if (variation == InputType.TYPE_TEXT_VARIATION_WEB_EDIT_TEXT) {
-                    outAttrs.inputType =
-                        (outAttrs.inputType & ~InputType.TYPE_MASK_VARIATION) |
-                        InputType.TYPE_TEXT_VARIATION_SHORT_MESSAGE;
-                }
+
+                // Allow personalized keyboard predictions
+                outAttrs.imeOptions &= ~EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING;
             }
         }
         return ic;
@@ -73,13 +83,14 @@ public class SuggestCapacitorWebView extends CapacitorWebView {
 `;
 
 fs.writeFileSync(path.join(targetDir, "SuggestCapacitorWebView.java"), customWebViewJava, "utf8");
-console.log("OK: Created SuggestCapacitorWebView.java in package", pkgName);
+console.log("OK: Updated SuggestCapacitorWebView.java (clears AUTO_COMPLETE + NO_SUGGESTIONS) in", pkgName);
 
 const capLayoutDir = path.join("node_modules", "@capacitor", "android", "capacitor", "src", "main", "res", "layout");
 const appLayoutDir = path.join("android", "app", "src", "main", "res", "layout");
 fs.mkdirSync(appLayoutDir, { recursive: true });
 
 let patchedCount = 0;
+
 if (fs.existsSync(capLayoutDir)) {
   for (const file of fs.readdirSync(capLayoutDir)) {
     if (!file.endsWith(".xml")) continue;
@@ -96,7 +107,18 @@ if (fs.existsSync(capLayoutDir)) {
   }
 }
 
+for (const file of fs.readdirSync(appLayoutDir)) {
+  if (!file.endsWith(".xml")) continue;
+  const full = path.join(appLayoutDir, file);
+  const xml = fs.readFileSync(full, "utf8");
+  if (xml.includes("com.getcapacitor.CapacitorWebView")) {
+    fs.writeFileSync(full, xml.replace(/com\.getcapacitor\.CapacitorWebView/g, `${pkgName}.SuggestCapacitorWebView`), "utf8");
+    console.log("OK: Patched app layout XML:", file);
+    patchedCount++;
+  }
+}
+
 if (patchedCount === 0) {
-  console.error("ERROR: Could not find CapacitorWebView layout XML in", capLayoutDir);
+  console.error("ERROR: Could not find CapacitorWebView layout XML");
   process.exit(1);
 }
