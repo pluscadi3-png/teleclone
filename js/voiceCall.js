@@ -1049,10 +1049,209 @@
     if (activeCall) endActiveCall(true, "");
   });
 
+  // ===== LIVE RECENT CALLS LOG UI =====
+  let callsFilter = "all";
+  let cachedCallsList = [];
+
+  function closeLiveCallsModal() {
+    const el = document.getElementById("tcCallsLogOverlay");
+    if (el) el.remove();
+  }
+
+  function findChatIdForPeer(peerUserId) {
+    try {
+      const st = getStoreObj();
+      const chats = st && typeof st.getState === "function" ? st.getState().chats || [] : [];
+      const match = chats.find((c) => String(c.peerUserId || c.otherUserId || "") === String(peerUserId));
+      return match ? match.id : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function renderCallsListBody() {
+    const body = document.getElementById("tcCallsLogBody");
+    const missedBadge = document.getElementById("tcCallsMissedCount");
+    if (!body) return;
+
+    const missedCount = cachedCallsList.filter((c) => c.direction === "incoming" && c.status === "missed").length;
+    if (missedBadge) {
+      missedBadge.textContent = missedCount > 0 ? String(missedCount) : "";
+      missedBadge.style.display = missedCount > 0 ? "inline-flex" : "none";
+    }
+
+    const items =
+      callsFilter === "missed"
+        ? cachedCallsList.filter((c) => c.direction === "incoming" && c.status === "missed")
+        : cachedCallsList;
+
+    if (!items.length) {
+      body.innerHTML = `<div class="tc-cl-empty">${
+        callsFilter === "missed" ? "No missed calls." : "No recent calls yet."
+      }</div>`;
+      return;
+    }
+
+    body.innerHTML = items
+      .map((c, idx) => {
+        const isIncoming = c.direction === "incoming";
+        const isMissed = c.status === "missed";
+        const isVideo = c.callType === "video";
+        const isIncomingMissed = isIncoming && isMissed;
+        const typeLbl = isVideo ? "Video" : "Voice";
+        const arrow = isIncoming ? "?" : "?";
+
+        let subText = "";
+        let arrowClass = "ok";
+        if (isIncomingMissed) {
+          subText = `Missed ${typeLbl.toLowerCase()} call`;
+          arrowClass = "missed";
+        } else if (isIncoming) {
+          subText = `Incoming ${typeLbl.toLowerCase()} ? ${c.duration || "00:00"}`;
+        } else if (isMissed) {
+          subText = `Outgoing ${typeLbl.toLowerCase()} ? No answer`;
+          arrowClass = "muted";
+        } else {
+          subText = `Outgoing ${typeLbl.toLowerCase()} ? ${c.duration || "00:00"}`;
+        }
+
+        const av = c.avatarUrl
+          ? `<img src="${esc(c.avatarUrl)}" alt="${esc(c.name)}" />`
+          : `<div class="tc-cl-av-fb" style="background:${esc(c.color || "linear-gradient(135deg,#334155,#1e293b)")}">${esc(c.initials || (c.name || "U")[0].toUpperCase())}</div>`;
+
+        return `
+          <div class="tc-cl-row" data-cl-idx="${idx}">
+            <div class="tc-cl-av">${av}</div>
+            <div class="tc-cl-info">
+              <div class="tc-cl-name ${isIncomingMissed ? "missed" : ""}">${esc(c.name || "Unknown")}</div>
+              <div class="tc-cl-sub">
+                <span class="tc-cl-arrow ${arrowClass}">${arrow}</span>
+                <span>${esc(subText)}</span>
+                ${c.time ? `<span class="tc-cl-time">? ${esc(c.time)}</span>` : ""}
+              </div>
+            </div>
+            <div class="tc-cl-actions">
+              <button type="button" class="tc-cl-act-btn" data-cl-redial="voice" data-cl-idx="${idx}" title="Voice Call">${ICONS.phone}</button>
+              <button type="button" class="tc-cl-act-btn" data-cl-redial="video" data-cl-idx="${idx}" title="Video Call">${ICONS.videoOn}</button>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+
+    body.querySelectorAll("[data-cl-redial]").forEach((btn) => {
+      btn.onclick = (ev) => {
+        ev.stopPropagation();
+        const item = items[Number(btn.getAttribute("data-cl-idx"))];
+        if (!item) return;
+        const ctype = btn.getAttribute("data-cl-redial") === "video" ? "video" : "voice";
+        closeLiveCallsModal();
+        startCall({
+          targetUserId: item.peerUserId,
+          chatId: findChatIdForPeer(item.peerUserId),
+          name: item.name,
+          avatarUrl: item.avatarUrl || "",
+          color: item.color || "",
+          callType: ctype
+        });
+      };
+    });
+  }
+
+  async function fetchLiveCalls() {
+    const body = document.getElementById("tcCallsLogBody");
+    const token = getActiveToken();
+    if (!token) {
+      if (body) body.innerHTML = '<div class="tc-cl-empty">Please sign in to view call history.</div>';
+      return;
+    }
+    if (body && !cachedCallsList.length) {
+      body.innerHTML = '<div class="tc-cl-empty">Loading calls...</div>';
+    }
+    try {
+      const res = await fetch(`/api/calls?_t=${Date.now()}`, {
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Could not load calls");
+      cachedCallsList = Array.isArray(data.calls) ? data.calls : [];
+      renderCallsListBody();
+    } catch (err) {
+      if (body) body.innerHTML = `<div class="tc-cl-empty">${esc(err.message || "Failed to load calls")}</div>`;
+    }
+  }
+
+  function openLiveCallsModal() {
+    closeLiveCallsModal();
+    callsFilter = "all";
+
+    const drawerOv = document.getElementById("drawer-overlay") || document.querySelector(".drawer-overlay");
+    if (drawerOv && !drawerOv.classList.contains("hidden")) {
+      try { drawerOv.click(); } catch (_) {}
+    }
+
+    const ov = document.createElement("div");
+    ov.id = "tcCallsLogOverlay";
+    ov.className = "tc-cl-overlay";
+    ov.innerHTML = `
+      <div class="tc-cl-sheet">
+        <div class="tc-cl-head">
+          <button type="button" class="tc-cl-icon-btn" id="tcCallsCloseBtn" aria-label="Back">?</button>
+          <div class="tc-cl-title">Recent Calls</div>
+          <button type="button" class="tc-cl-icon-btn" id="tcCallsRefreshBtn" title="Refresh">?</button>
+        </div>
+        <div class="tc-cl-tabs">
+          <button type="button" class="tc-cl-tab active" data-cl-tab="all">All</button>
+          <button type="button" class="tc-cl-tab" data-cl-tab="missed">Missed <span id="tcCallsMissedCount" class="tc-cl-badge"></span></button>
+        </div>
+        <div id="tcCallsLogBody" class="tc-cl-body">
+          <div class="tc-cl-empty">Loading calls...</div>
+        </div>
+      </div>
+    `;
+
+    ov.addEventListener("click", (e) => {
+      if (e.target === ov) closeLiveCallsModal();
+    });
+    ov.querySelector("#tcCallsCloseBtn").onclick = closeLiveCallsModal;
+    ov.querySelector("#tcCallsRefreshBtn").onclick = fetchLiveCalls;
+    ov.querySelectorAll("[data-cl-tab]").forEach((tab) => {
+      tab.onclick = () => {
+        callsFilter = tab.getAttribute("data-cl-tab") === "missed" ? "missed" : "all";
+        ov.querySelectorAll("[data-cl-tab]").forEach((t) => t.classList.toggle("active", t === tab));
+        renderCallsListBody();
+      };
+    });
+
+    document.body.appendChild(ov);
+    fetchLiveCalls();
+  }
+
+  function hookDrawerCallsAction() {
+    if (window.SocialUI && typeof window.SocialUI.handleDrawerAction === "function" && !window.SocialUI._tcCallsHooked) {
+      const origHandle = window.SocialUI.handleDrawerAction.bind(window.SocialUI);
+      window.SocialUI.handleDrawerAction = function (action) {
+        if (action === "calls") {
+          openLiveCallsModal();
+          return true;
+        }
+        return origHandle(action);
+      };
+      window.SocialUI._tcCallsHooked = true;
+    }
+  }
+
+  hookDrawerCallsAction();
+  window.addEventListener("DOMContentLoaded", hookDrawerCallsAction);
+  setTimeout(hookDrawerCallsAction, 600);
+  // ===== END LIVE RECENT CALLS LOG UI =====
+
   window.TCVoiceCall = {
     startCall,
     startVideoCall: (opts) => startCall({ ...(opts || {}), callType: "video" }),
     endCall: () => endActiveCall(true, "Call ended"),
-    isActive: () => Boolean(activeCall)
+    isActive: () => Boolean(activeCall),
+    openCallsLog: openLiveCallsModal
   };
 })();
