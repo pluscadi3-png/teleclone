@@ -5463,7 +5463,7 @@ a,
     box-sizing: border-box !important;
     width: 100% !important;
     max-width: 100vw !important;
-    overflow: hidden !important;
+    overflow: visible !important;
   }
 
   #composer-input-wrap,
@@ -5473,6 +5473,7 @@ a,
     gap: 3px !important;
     padding: 4px 6px !important;
     box-sizing: border-box !important;
+    overflow: visible !important;
   }
 
   #msg-input {
@@ -5500,5 +5501,18 @@ a,
     flex-shrink: 0 !important;
     margin: 0 !important;
   }
+}
+
+#plus-attach-menu:not(.hidden) {
+  display: flex !important;
+  flex-direction: column !important;
+  position: fixed !important;
+  z-index: 10250 !important;
+  background: #181a22 !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 14px !important;
+  padding: 6px !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55) !important;
+  min-width: 175px !important;
 }
 /* === TC_MOBILE_COMPOSER_FIT_END === */
