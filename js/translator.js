@@ -102,12 +102,28 @@
   }
 
   function getToken() {
-    return (
-      localStorage.getItem("teleclone_token") ||
-      localStorage.getItem("token") ||
-      localStorage.getItem("auth_token") ||
-      ""
-    );
+    const keys = [
+      "teleclone_jwt",
+      "teleclone_token",
+      "tc_token",
+      "token",
+      "auth_token",
+      "jwt"
+    ];
+    for (let i = 0; i < keys.length; i++) {
+      const v = localStorage.getItem(keys[i]);
+      if (v && v.trim()) return v.trim();
+    }
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        const v = localStorage.getItem(k) || "";
+        if (/^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(v.trim())) {
+          return v.trim();
+        }
+      }
+    } catch (_) {}
+    return "";
   }
 
   function getPref(chatId) {

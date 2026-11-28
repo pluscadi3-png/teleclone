@@ -111,32 +111,61 @@ def _call_groq(text: str, src_code: str, tgt_code: str) -> str:
         return _clean_ai_output(out, text)
 
 
+def _get_gemini_key() -> str:
+    return (
+        _get_gemini_key()
+        or os.getenv("GOOGLE_API_KEY", "").strip()
+        or os.getenv("GEMINI_KEY", "").strip()
+    )
+
+
 def _call_gemini(text: str, src_code: str, tgt_code: str) -> str:
-    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    api_key = _get_gemini_key()
     if not api_key:
         return ""
-    model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
-    sys_msg, user_msg = _build_prompt(text, src_code, tgt_code)
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{urllib.parse.quote(model)}:generateContent?key={urllib.parse.quote(api_key)}"
-    payload = json.dumps(
-        {
-            "systemInstruction": {"parts": [{"text": sys_msg}]},
-            "contents": [{"role": "user", "parts": [{"text": user_msg}]}],
-            "generationConfig": {"temperature": 0.2, "maxOutputTokens": 512},
-        }
-    ).encode("utf-8")
+    primary = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
+    models = [primary]
+    if primary != "gemini-2.0-flash":
+        models.append("gemini-2.0-flash")
 
-    req = urllib.request.Request(
-        url,
-        data=payload,
-        headers={"Content-Type": "application/json", "User-Agent": "TeleClone/1.0"},
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=12) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
-        parts = data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
-        out = "".join(p.get("text", "") for p in parts)
-        return _clean_ai_output(out, text)
+    sys_msg, user_msg = _build_prompt(text, src_code, tgt_code)
+    last_err = None
+
+    for model in models:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{urllib.parse.quote(model)}:generateContent?key={urllib.parse.quote(api_key)}"
+            gen_cfg = {"temperature": 0.2, "maxOutputTokens": 512}
+            if "2.5" in model:
+                gen_cfg["thinkingConfig"] = {"thinkingBudget": 0}
+            payload = json.dumps(
+                {
+                    "systemInstruction": {"parts": [{"text": sys_msg}]},
+                    "contents": [{"role": "user", "parts": [{"text": user_msg}]}],
+                    "generationConfig": gen_cfg,
+                }
+            ).encode("utf-8")
+
+            req = urllib.request.Request(
+                url,
+                data=payload,
+                headers={"Content-Type": "application/json", "User-Agent": "TeleClone/1.0"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                parts = data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
+                out = "".join(p.get("text", "") for p in parts if not p.get("thought"))
+                cleaned = _clean_ai_output(out, text)
+                if cleaned:
+                    return cleaned
+        except Exception as e:
+            last_err = e
+            print(f"[translate] Gemini ({model}) error:", e)
+            continue
+
+    if last_err:
+        raise last_err
+    return ""
 
 
 def _call_google_fallback(text: str, src_code: str, tgt_code: str) -> str:
@@ -174,7 +203,7 @@ def _translate_sync(text: str, src_code: str, tgt_code: str) -> tuple:
         except Exception as e:
             print("[translate] Groq error:", e)
 
-    if os.getenv("GEMINI_API_KEY", "").strip():
+    if _get_gemini_key():
         try:
             out = _call_gemini(text, src_code, tgt_code)
             if out:
@@ -198,7 +227,7 @@ def _translate_sync(text: str, src_code: str, tgt_code: str) -> tuple:
 def translate_status(user: dict = Depends(get_current_user)):
     if os.getenv("GROQ_API_KEY", "").strip():
         engine = "groq"
-    elif os.getenv("GEMINI_API_KEY", "").strip():
+    elif _get_gemini_key():
         engine = "gemini"
     else:
         engine = "fallback"
