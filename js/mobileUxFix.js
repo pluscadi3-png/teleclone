@@ -59,17 +59,16 @@
     const ident = (el.id || "") + " " + (el.name || "") + " " + (el.className || "");
     if (el.id !== "msg-input" && SKIP_FIELD_RE.test(ident)) return;
 
-    // Android WebView / Gboard hides suggestion strip if autocomplete="off" or spellcheck="false"
-    el.setAttribute("autocomplete", "on");
+    // Remove autocomplete="off" and enable native correction/capitalization cleanly
+    if (el.getAttribute("autocomplete") === "off") {
+      el.removeAttribute("autocomplete");
+    }
     el.setAttribute("autocorrect", "on");
     el.setAttribute("autocapitalize", "sentences");
     el.setAttribute("spellcheck", "true");
     el.spellcheck = true;
-
-    if (tag === "INPUT" && type === "search") {
-      el.setAttribute("inputmode", "search");
-    } else if (!el.getAttribute("inputmode")) {
-      el.setAttribute("inputmode", "text");
+    if (tag === "TEXTAREA" && el.getAttribute("inputmode") === "text") {
+      el.removeAttribute("inputmode");
     }
 
     const parentForm = el.closest("form");

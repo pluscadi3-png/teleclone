@@ -30,6 +30,7 @@ jobs:
           npx cap add android
           if [ -f "google-services.json" ]; then cp google-services.json android/app/google-services.json; echo "Copied google-services.json for FCM"; fi
           npx cap sync android
+          node enable-keyboard-suggestions.js
 
       - name: Add Android Permissions (Phone Number, Contacts, Media, Mic, Camera, Notifications)
         run: |
