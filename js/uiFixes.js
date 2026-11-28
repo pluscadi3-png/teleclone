@@ -760,6 +760,8 @@
   ];
 
   let stagedFile = null;
+  let stagedFileBytesPromise = null;
+  let stagedFileMemUrl = null;
   let stagedPreviewUrl = "";
   let selectedTtlSec = 0;
   let isSendingStagedFile = false;
@@ -794,7 +796,7 @@
   }
 
   function clearStagedFile() {
-    stagedFile = null;
+    stagedFile = null; stagedFileBytesPromise = null;
     selectedTtlSec = 0;
     if (stagedPreviewUrl) {
       URL.revokeObjectURL(stagedPreviewUrl);
@@ -835,6 +837,18 @@
   function stageSelectedFile(file) {
     if (stagedPreviewUrl) URL.revokeObjectURL(stagedPreviewUrl);
     stagedFile = file;
+    stagedFileBytesPromise = file.arrayBuffer().then((buf) => {
+      try {
+        const memBlob = new Blob([buf], { type: file.type || "application/octet-stream" });
+        if (stagedFileMemUrl) { try { URL.revokeObjectURL(stagedFileMemUrl); } catch (_) {} }
+        stagedFileMemUrl = URL.createObjectURL(memBlob);
+        const prevImg = document.querySelector("#staged-file-bar img");
+        if (prevImg && file.type && file.type.startsWith("image/")) {
+          prevImg.src = stagedFileMemUrl;
+        }
+      } catch (_) {}
+      return buf;
+    }).catch(() => null);
     selectedTtlSec = 0;
 
     const bar = ensureStagedPreviewBar();
@@ -938,7 +952,7 @@
     isSendingStagedFile = true;
     toast(`Uploading ${fileToUpload.name}...`);
     try {
-      const fileBytes = await fileToUpload.arrayBuffer();
+      const fileBytes = (stagedFileBytesPromise ? await stagedFileBytesPromise : null) || (await fileToUpload.arrayBuffer());
 
       const upRes = await fetch("/api/upload", {
         method: "POST",

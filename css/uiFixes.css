@@ -5452,3 +5452,53 @@ a,
   color: #fca5a5;
 }
 /* === TC_TRANSLATOR_UI_END === */
+
+/* === TC_MOBILE_COMPOSER_FIT_START === */
+@media (max-width: 768px) {
+  .chat-composer,
+  .composer-bar,
+  .composer {
+    padding: 6px 8px !important;
+    gap: 6px !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow: hidden !important;
+  }
+
+  #composer-input-wrap,
+  .composer-input-wrap {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    gap: 3px !important;
+    padding: 4px 6px !important;
+    box-sizing: border-box !important;
+  }
+
+  #msg-input {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    width: 0 !important;
+  }
+
+  #emoji-btn,
+  #tc-translate-btn,
+  #plus-attach-btn,
+  #attach-btn,
+  #reply-kb-toggle-btn {
+    width: 30px !important;
+    height: 30px !important;
+    min-width: 30px !important;
+    flex-shrink: 0 !important;
+    padding: 0 !important;
+  }
+
+  #composer-action-btn {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    flex-shrink: 0 !important;
+    margin: 0 !important;
+  }
+}
+/* === TC_MOBILE_COMPOSER_FIT_END === */
