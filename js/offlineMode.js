@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const SHELL_CACHE = "teleclone-shell-v1";
+  const SHELL_CACHE = "teleclone-shell-v23";
   const MEDIA_CACHE = "teleclone-media-v1";
   const TOKEN_TRACK_KEY = "tc_offline_token_sig";
   const cachedMediaSet = new Set();
@@ -22,25 +22,8 @@
   }
 
   async function warmShellAssets() {
-    if (!("caches" in window)) return;
-    try {
-      const cache = await caches.open(SHELL_CACHE);
-      const urls = new Set(["/"]);
-      document.querySelectorAll('link[rel="stylesheet"][href]').forEach((el) => {
-        const u = new URL(el.getAttribute("href"), window.location.origin);
-        if (u.origin === window.location.origin) urls.add(u.pathname + u.search);
-      });
-      document.querySelectorAll("script[src]").forEach((el) => {
-        const u = new URL(el.getAttribute("src"), window.location.origin);
-        if (u.origin === window.location.origin) urls.add(u.pathname + u.search);
-      });
-      for (const path of urls) {
-        try {
-          const res = await fetch(path, { cache: "no-cache" });
-          if (res && res.status === 200) await cache.put(path, res);
-        } catch (_) {}
-      }
-    } catch (_) {}
+    // Service Worker caches versioned JS/CSS automatically on first load (no boot flood)
+    if ("caches" in window) caches.delete("teleclone-shell-v1").catch(() => {});
   }
 
   // Account switch ya logout par purane account ki API cache clear karein
@@ -59,7 +42,7 @@
       if (navigator.serviceWorker && navigator.serviceWorker.controller) {
         navigator.serviceWorker.controller.postMessage({ type: "CLEAR_API_CACHE" });
       }
-      if ("caches" in window) caches.delete("teleclone-api-v1").catch(() => {});
+      if ("caches" in window) caches.delete("teleclone-api-v2").catch(() => {});
     }
     localStorage.setItem(TOKEN_TRACK_KEY, sig);
   }

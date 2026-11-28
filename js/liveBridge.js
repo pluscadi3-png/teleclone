@@ -133,35 +133,215 @@
   }
 
   // ==================== 4. SYNC CHATS & MESSAGES FROM SERVER ====================
-  async function syncChats() {
-    const res = await api("/api/chats");
-    const state = Store.getState();
-    const oldMap = new Map(state.chats.map((c) => [String(c.id), c.messages || []]));
+  let _renderAllRaf = 0;
+  let _syncChatsPromise = null;
+  let _msgReqSeq = 0;
+  const _renderedMsgSig = new Map();
 
-    state.chats = (res.chats || []).map((c) => normalizeChat(c, oldMap.get(String(c.id)) || []));
-    if (window.App) window.App.renderAll();
-    if (window.ChatUI && state.activeChatId) {
-      window.ChatUI.renderActiveChat(true);
+  function scheduleRenderAll() {
+    if (_renderAllRaf || !window.App) return;
+    _renderAllRaf = requestAnimationFrame(() => {
+      _renderAllRaf = 0;
+      if (window.App) window.App.renderAll();
+    });
+  }
+
+  function msgListSignature(msgs) {
+    if (!Array.isArray(msgs) || !msgs.length) return "0";
+    const first = msgs[0];
+    const last = msgs[msgs.length - 1];
+    return [
+      msgs.length,
+      first && first.id,
+      last && last.id,
+      last && last.status,
+      last && last.edited ? 1 : 0,
+      last && (last.text || "").length
+    ].join("|");
+  }
+
+  function getMsgScrollEl() {
+    return (
+      document.getElementById("messages-container") ||
+      document.getElementById("chat-messages") ||
+      document.querySelector(".messages-container") ||
+      document.querySelector(".chat-messages")
+    );
+  }
+
+  function setChatLoadingNotice(show) {
+    const el = getMsgScrollEl();
+    if (!el) return;
+    let loader = document.getElementById("tcMsgLoadNotice");
+    if (!show) {
+      if (loader) loader.remove();
+      return;
+    }
+    if (!loader) {
+      loader = document.createElement("div");
+      loader.id = "tcMsgLoadNotice";
+      loader.style.cssText =
+        "text-align:center;padding:18px 12px;color:#8e94a5;font-size:13px;font-weight:500;";
+      loader.textContent = "Loading messages...";
+      el.prepend(loader);
     }
   }
 
-  async function loadChatMessages(chatId) {
+  async function syncChats() {
+    if (_syncChatsPromise) return _syncChatsPromise;
+    _syncChatsPromise = (async () => {
+      const res = await api("/api/chats");
+      const state = Store.getState();
+      const oldMap = new Map(state.chats.map((c) => [String(c.id), c]));
+
+      state.chats = (res.chats || []).map((c) => {
+        const prev = oldMap.get(String(c.id));
+        const normalized = normalizeChat(c, (prev && prev.messages) || []);
+        if (prev) {
+          normalized._messagesLoaded = Boolean(prev._messagesLoaded);
+          normalized._hasMore = prev._hasMore !== undefined ? prev._hasMore : true;
+        }
+        return normalized;
+      });
+
+      scheduleRenderAll();
+
+      if (state.activeChatId) {
+        const active = Store.getChatById(state.activeChatId);
+        if (active && (!active._messagesLoaded || !active.messages || !active.messages.length)) {
+          loadChatMessages(state.activeChatId);
+        }
+      }
+    })();
+
+    try {
+      await _syncChatsPromise;
+    } finally {
+      _syncChatsPromise = null;
+    }
+  }
+
+  async function loadChatMessages(chatId, retryAttempt = 0) {
     const cid = resolveChatId(chatId);
     if (!cid) return;
+
+    const mySeq = ++_msgReqSeq;
+    const preChat = Store.getChatById(cid);
+    const hadLocalMsgs = Boolean(preChat && Array.isArray(preChat.messages) && preChat.messages.length > 0);
+    if (!hadLocalMsgs && String(Store.getState().activeChatId) === String(cid)) {
+      setChatLoadingNotice(true);
+    }
+
     try {
       const res = await api(`/api/chats/${cid}/messages?limit=80`);
       const chat = Store.getChatById(cid);
       if (!chat) return;
-      chat.messages = (res.messages || []).map(normalizeMessage);
+
+      const serverMsgs = (res.messages || []).map(normalizeMessage);
+      const pendingLocal = (chat.messages || []).filter(
+        (m) => m && (m._pending || String(m.id || "").startsWith("temp_"))
+      );
+      const merged = serverMsgs.concat(
+        pendingLocal.filter((p) => !serverMsgs.some((s) => String(s.id) === String(p.id)))
+      );
+
+      const newSig = msgListSignature(merged);
+      const prevSig = _renderedMsgSig.get(cid);
+
+      chat.messages = merged;
       chat.unreadCount = 0;
-      if (window.App) window.App.renderAll();
-      if (window.ChatUI && Store.getState().activeChatId === cid) {
-        window.ChatUI.renderActiveChat();
+      chat._messagesLoaded = true;
+      chat._hasMore = res.hasMore !== undefined ? Boolean(res.hasMore) : serverMsgs.length >= 80;
+
+      setChatLoadingNotice(false);
+      scheduleRenderAll();
+
+      if (window.ChatUI && String(Store.getState().activeChatId) === String(cid) && mySeq === _msgReqSeq) {
+        if (!hadLocalMsgs || prevSig !== newSig) {
+          _renderedMsgSig.set(cid, newSig);
+          window.ChatUI.renderActiveChat(hadLocalMsgs);
+        }
+        bindOlderHistoryScroll();
       }
     } catch (err) {
-      console.error("Failed to load messages:", err);
+      if (retryAttempt < 1) {
+        setTimeout(() => {
+          if (String(Store.getState().activeChatId) === String(cid)) {
+            loadChatMessages(cid, retryAttempt + 1);
+          }
+        }, 1200);
+      } else {
+        setChatLoadingNotice(false);
+        console.error("Failed to load messages:", err);
+      }
     }
   }
+
+  async function loadOlderMessages(chatId) {
+    const cid = resolveChatId(chatId);
+    const chat = Store.getChatById(cid);
+    if (!chat || chat._loadingOlder || chat._hasMore === false) return;
+
+    const firstReal = (chat.messages || []).find((m) => m && /^d+$/.test(String(m.id)));
+    if (!firstReal) {
+      chat._hasMore = false;
+      return;
+    }
+
+    chat._loadingOlder = true;
+    const scroller = getMsgScrollEl();
+    const prevHeight = scroller ? scroller.scrollHeight : 0;
+    const prevTop = scroller ? scroller.scrollTop : 0;
+
+    try {
+      const res = await api(`/api/chats/${cid}/messages?limit=60&beforeId=${encodeURIComponent(firstReal.id)}`);
+      const older = (res.messages || []).map(normalizeMessage);
+      chat._hasMore = Boolean(res.hasMore);
+
+      if (older.length) {
+        const existingIds = new Set((chat.messages || []).map((m) => String(m.id)));
+        const freshOlder = older.filter((m) => !existingIds.has(String(m.id)));
+        if (freshOlder.length) {
+          chat.messages = freshOlder.concat(chat.messages || []);
+          _renderedMsgSig.set(cid, msgListSignature(chat.messages));
+          if (window.ChatUI && String(Store.getState().activeChatId) === String(cid)) {
+            window.ChatUI.renderActiveChat(true);
+            const afterEl = getMsgScrollEl();
+            if (afterEl && prevHeight > 0) {
+              afterEl.scrollTop = afterEl.scrollHeight - prevHeight + prevTop;
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load older messages:", err);
+    } finally {
+      chat._loadingOlder = false;
+    }
+  }
+
+  function bindOlderHistoryScroll() {
+    const scroller = getMsgScrollEl();
+    if (!scroller || scroller._tcOldBound) return;
+    scroller._tcOldBound = true;
+    scroller.addEventListener(
+      "scroll",
+      () => {
+        if (scroller.scrollTop > 140) return;
+        const cid = Store.getState().activeChatId;
+        if (cid) loadOlderMessages(cid);
+      },
+      { passive: true }
+    );
+  }
+
+  window.TCLiveHistory = {
+    loadOlder: loadOlderMessages,
+    reloadActive: () => {
+      const cid = Store.getState().activeChatId;
+      if (cid) loadChatMessages(cid);
+    }
+  };
 
   // ==================== 5. REAL-TIME WEBSOCKET ENGINE ====================
   window.TCWS = {
@@ -291,14 +471,25 @@
         await syncChats();
       } else if (data.type === "user_status") {
         const uid = String(data.userId);
+        let changed = false;
+        let activeHit = false;
         state.chats.forEach((c) => {
           if (c.peerUserId === uid && !c.isBot) {
-            c.online = !!data.online;
-            c.statusText = data.online ? "online" : "last seen recently";
+            const nextOn = !!data.online;
+            const nextTxt = nextOn ? "online" : "last seen recently";
+            if (c.online !== nextOn || c.statusText !== nextTxt) {
+              c.online = nextOn;
+              c.statusText = nextTxt;
+              changed = true;
+              if (String(state.activeChatId) === String(c.id)) activeHit = true;
+            }
           }
         });
-        if (window.App) window.App.renderAll();
-        if (window.ChatUI && state.activeChatId) window.ChatUI.renderActiveChat(true);
+        if (changed) scheduleRenderAll();
+        if (activeHit) {
+          const stEl = document.getElementById("preview-chat-status");
+          if (stEl) stEl.textContent = data.online ? "online" : "last seen recently";
+        }
         } else if (data.type === "story_posted") {
         await loadLiveStories();
       } else if (data.type === "typing") {
@@ -544,6 +735,13 @@
       const resolved = resolveChatId(chatId);
       if (!resolved) return;
       prevOpen(resolved);
+      const opened = Store.getChatById(resolved);
+      if (opened && Array.isArray(opened.messages) && opened.messages.length) {
+        _renderedMsgSig.set(resolved, msgListSignature(opened.messages));
+      } else {
+        _renderedMsgSig.delete(resolved);
+      }
+      bindOlderHistoryScroll();
       loadChatMessages(resolved);
     };
 
@@ -711,15 +909,32 @@
       showAuthScreen();
       return;
     }
+    authEls.screen.classList.add("hidden");
     try {
-      const me = await api("/api/auth/me");
+      const [me] = await Promise.all([
+        api("/api/auth/me"),
+        syncChats().catch(() => null)
+      ]);
       applyLoggedInUser(me.user);
       authEls.screen.classList.add("hidden");
-      await syncChats();
-      await loadLiveStories();
       connectWebSocket();
-    } catch {
-      showAuthScreen();
+      if (!Store.getState().chats.length) {
+        await syncChats().catch(() => null);
+      }
+      loadLiveStories().catch(() => null);
+    } catch (err) {
+      const msg = String((err && err.message) || "").toLowerCase();
+      const isAuthError =
+        (err && (err.status === 401 || err.status === 403)) ||
+        /401|unauthorized|invalid token|expired|not authenticated|user not found/.test(msg);
+      if (isAuthError) {
+        showAuthScreen();
+      } else {
+        // Temporary network/cold-start glitch: keep cached chats visible & silently retry
+        setTimeout(() => {
+          if (getToken()) bootLiveSession();
+        }, 3000);
+      }
     }
   }
 

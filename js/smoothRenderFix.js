@@ -91,12 +91,14 @@
       initials: chat.initials || "",
       online: Boolean(chat.online),
       statusText: chat.statusText || "",
-      unread: Number(chat.unread) || 0,
+      unread: Number(chat.unreadCount ?? chat.unread) || 0,
+      unreadCount: Number(chat.unreadCount ?? chat.unread) || 0,
       pinned: Boolean(chat.pinned),
       muted: Boolean(chat.muted),
       archived: Boolean(chat.archived),
       lastMessage: chat.lastMessage || "",
       lastTime: chat.lastTime || "",
+      lastTimestamp: Number(chat.lastTimestamp) || 0,
       peerUserId: chat.peerUserId || chat.otherUserId || null,
       messages: cleanMsgs
     };

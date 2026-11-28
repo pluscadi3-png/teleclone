@@ -1,5 +1,5 @@
-const SHELL_CACHE = "teleclone-shell-v21";
-const API_CACHE = "teleclone-api-v1";
+const SHELL_CACHE = "teleclone-shell-v23";
+const API_CACHE = "teleclone-api-v2";
 const MEDIA_CACHE = "teleclone-media-v1";
 
 self.addEventListener("install", (event) => {
@@ -51,7 +51,6 @@ async function buildRangeResponse(request, cachedResponse) {
 
   const start = parseInt(match[1], 10);
   const end = match[2] ? Math.min(parseInt(match[2], 10), total - 1) : total - 1;
-
   if (start >= total || start > end) {
     return new Response(null, {
       status: 416,
@@ -73,26 +72,27 @@ async function buildRangeResponse(request, cachedResponse) {
 }
 
 self.addEventListener("fetch", (event) => {
-  try {
-    const _u = new URL(event.request.url);
-    if (_u.pathname.startsWith("/api/auth/") || (event.request.mode === "navigate" && _u.pathname.startsWith("/api/"))) return;
-  } catch (_) {}
   const req = event.request;
   if (req.method !== "GET") return;
 
-  const url = new URL(req.url);
+  let url;
+  try {
+    url = new URL(req.url);
+  } catch (_) {
+    return;
+  }
+
   if (url.origin !== self.location.origin) return;
   if (url.pathname === "/sw.js" || url.pathname.startsWith("/ws")) return;
+  if (url.pathname.startsWith("/api/auth/") || (req.mode === "navigate" && url.pathname.startsWith("/api/"))) return;
 
-  // 1. Photos, Videos, Voice Notes (/uploads/*) -> Cache-First (Offline 100% playable)
+  // 1. Uploaded Media (/uploads/*) -> Cache-First (instant playback & offline support)
   if (url.pathname.startsWith("/uploads/")) {
     event.respondWith(
       (async () => {
         const cache = await caches.open(MEDIA_CACHE);
         const cached = await cache.match(url.pathname);
-        if (cached) {
-          return buildRangeResponse(req, cached.clone());
-        }
+        if (cached) return buildRangeResponse(req, cached.clone());
         try {
           const netRes = await fetch(req);
           if (netRes && netRes.status === 200) {
@@ -107,14 +107,36 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 2. API GET Data (Chats, Messages, Profile, Info) -> Network-First with Offline Cache Fallback
+  // 2. Versioned JS & CSS (?v=...) -> Cache-First (zero startup lag/flicker)
+  if ((url.pathname.startsWith("/js/") || url.pathname.startsWith("/css/")) && url.search.includes("v=")) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(SHELL_CACHE);
+        const key = url.pathname + url.search;
+        const cached = await cache.match(key);
+        if (cached) return cached;
+        try {
+          const netRes = await fetch(req);
+          if (netRes && netRes.status === 200) {
+            cache.put(key, netRes.clone()).catch(() => {});
+          }
+          return netRes;
+        } catch (_) {
+          return new Response("", { status: 503 });
+        }
+      })()
+    );
+    return;
+  }
+
+  // 3. API GET -> Network-First (12s timeout so old chats never fail early) + Offline fallback
   if (url.pathname.startsWith("/api/")) {
     event.respondWith(
       (async () => {
         const cache = await caches.open(API_CACHE);
         const cacheKey = url.pathname + url.search;
         try {
-          const netRes = await fetchWithTimeout(req, 5000);
+          const netRes = await fetchWithTimeout(req, 12000);
           if (netRes && netRes.status === 200) {
             cache.put(cacheKey, netRes.clone()).catch(() => {});
           }
@@ -132,14 +154,14 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 3. App Shell (index.html, CSS, JS) -> Network-First (Live Updates + Offline Cold Launch)
+  // 4. App HTML Shell (/) -> Network-First with fast cache fallback
   event.respondWith(
     (async () => {
       const cache = await caches.open(SHELL_CACHE);
       const isNav = req.mode === "navigate" || url.pathname === "/";
       const key = isNav ? "/" : url.pathname + url.search;
       try {
-        const netRes = await fetchWithTimeout(req, 4000);
+        const netRes = await fetchWithTimeout(req, 4500);
         if (netRes && netRes.status === 200) {
           cache.put(key, netRes.clone()).catch(() => {});
         }

@@ -322,10 +322,31 @@ def serialize_chat_for_user(conn, chat_id: int, user_id: int) -> Optional[dict]:
 
 
 # ==================== CHAT & SEARCH ENDPOINTS ====================
+_PERF_INDEXES_READY = False
+
+
+def _ensure_perf_indexes(conn):
+    global _PERF_INDEXES_READY
+    if _PERF_INDEXES_READY:
+        return
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_members_user ON chat_members(user_id, chat_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_members_chat ON chat_members(chat_id, user_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id, id DESC)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_messages_chat_status ON messages(chat_id, sender_id, status)")
+        conn.commit()
+    except Exception:
+        pass
+    _PERF_INDEXES_READY = True
+
+
 @router.get("/chats")
 def list_chats(user: dict = Depends(get_current_user)):
     conn = get_conn()
     try:
+        _ensure_perf_indexes(conn)
         rows = conn.execute(
             "SELECT chat_id FROM chat_members WHERE user_id = ?", (user["id"],)
         ).fetchall()
@@ -632,29 +653,50 @@ def leave_or_delete_chat(chat_id: int, user: dict = Depends(get_current_user)):
 async def get_messages(
     chat_id: int,
     limit: int = Query(default=60, ge=1, le=200),
+    beforeId: Optional[int] = Query(default=None),
     user: dict = Depends(get_current_user),
 ):
     conn = get_conn()
+    marked_read = False
     try:
-        ensure_member(conn, chat_id, user["id"])
-        # Mark unread as 0 & incoming messages as read (double tick ✓✓)
-        conn.execute(
-            "UPDATE chat_members SET unread_count = 0 WHERE chat_id = ? AND user_id = ?",
-            (chat_id, user["id"]),
-        )
-        cur = conn.execute(
-            "UPDATE messages SET status = 'read' WHERE chat_id = ? AND sender_id != ? AND status != 'read'",
-            (chat_id, user["id"]),
-        )
-        marked_read = cur.rowcount > 0
-        conn.commit()
+        _ensure_perf_indexes(conn)
+        mem = ensure_member(conn, chat_id, user["id"])
+
+        # Only run write transaction when opening latest messages with actual unreads (avoids SQLite locks)
+        if beforeId is None:
+            has_unread_msgs = conn.execute(
+                "SELECT 1 FROM messages WHERE chat_id = ? AND sender_id != ? AND status != 'read' LIMIT 1",
+                (chat_id, user["id"]),
+            ).fetchone()
+            need_reset_cnt = bool(mem and mem["unread_count"])
+            if need_reset_cnt or has_unread_msgs:
+                if need_reset_cnt:
+                    conn.execute(
+                        "UPDATE chat_members SET unread_count = 0 WHERE chat_id = ? AND user_id = ?",
+                        (chat_id, user["id"]),
+                    )
+                if has_unread_msgs:
+                    cur = conn.execute(
+                        "UPDATE messages SET status = 'read' WHERE chat_id = ? AND sender_id != ? AND status != 'read'",
+                        (chat_id, user["id"]),
+                    )
+                    marked_read = cur.rowcount > 0
+                conn.commit()
 
         now_ts = int(time.time())
-        rows = conn.execute(
-            "SELECT * FROM messages WHERE chat_id = ? AND (expires_at IS NULL OR expires_at > ?) ORDER BY id DESC LIMIT ?",
-            (chat_id, now_ts, limit),
-        ).fetchall()
-        rows = list(reversed(rows))
+        if beforeId is not None:
+            rows = conn.execute(
+                "SELECT * FROM messages WHERE chat_id = ? AND id < ? AND (expires_at IS NULL OR expires_at > ?) ORDER BY id DESC LIMIT ?",
+                (chat_id, int(beforeId), now_ts, limit + 1),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM messages WHERE chat_id = ? AND (expires_at IS NULL OR expires_at > ?) ORDER BY id DESC LIMIT ?",
+                (chat_id, now_ts, limit + 1),
+            ).fetchall()
+
+        has_more = len(rows) > limit
+        rows = list(reversed(rows[:limit]))
         messages = [serialize_message(conn, r, user["id"]) for r in rows]
     finally:
         conn.close()
@@ -663,7 +705,7 @@ async def get_messages(
         await ws_manager.broadcast_to_chat(
             chat_id, {"type": "messages_read", "chatId": chat_id, "readerId": user["id"]}, exclude_user_id=user["id"]
         )
-    return {"ok": True, "messages": messages}
+    return {"ok": True, "messages": messages, "hasMore": has_more}
 
 
 @router.post("/chats/{chat_id}/messages")
