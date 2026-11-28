@@ -108,7 +108,7 @@
     const key = getSnapshotKey();
     if (!key) return;
     const now = Date.now();
-    if (!force && now - lastSnapshotSavedAt < 1200) return;
+    if (!force && now - lastSnapshotSavedAt < 3500) return;
 
     const st = getStoreObj();
     if (!st || typeof st.getState !== "function") return;
@@ -459,7 +459,15 @@
         rafId = requestAnimationFrame(() => {
           rafId = 0;
           origAll();
-          saveChatsSnapshot(false);
+          clearTimeout(window._tcSnapTimer);
+          window._tcSnapTimer = setTimeout(() => {
+            if (window._tcIsScrolling) return;
+            if (typeof requestIdleCallback === "function") {
+              requestIdleCallback(() => saveChatsSnapshot(false), { timeout: 2000 });
+            } else {
+              saveChatsSnapshot(false);
+            }
+          }, 1200);
         });
       };
       window.App._tcWrapped = true;

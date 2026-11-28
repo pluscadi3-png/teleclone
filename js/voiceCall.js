@@ -1336,7 +1336,7 @@
 
   let _tcCardRaf = 0;
   function scheduleEnhanceCallCards() {
-    if (_tcCardRaf) return;
+    if (_tcCardRaf || window._tcIsScrolling) return;
     _tcCardRaf = requestAnimationFrame(() => {
       _tcCardRaf = 0;
       enhanceInChatCallCards();
@@ -1345,7 +1345,10 @@
 
   function startCallCardObserver() {
     enhanceInChatCallCards();
-    const target = document.body;
+    const target =
+      document.getElementById("messages-container") ||
+      document.getElementById("chat-messages") ||
+      document.body;
     if (!target || target._tcCallCardObs) return;
     const obs = new MutationObserver(scheduleEnhanceCallCards);
     obs.observe(target, { childList: true, subtree: true });

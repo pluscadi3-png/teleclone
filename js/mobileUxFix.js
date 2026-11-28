@@ -395,8 +395,13 @@
     initCapacitorBackButton();
     initWebHistoryBackGuard();
 
+    let sugTimer = 0;
     const obs = new MutationObserver(() => {
-      scanAllInputsForSuggestions();
+      if (window._tcIsScrolling || sugTimer) return;
+      sugTimer = setTimeout(() => {
+        sugTimer = 0;
+        scanAllInputsForSuggestions();
+      }, 450);
     });
     obs.observe(document.body, { childList: true, subtree: true });
 

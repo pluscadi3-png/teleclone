@@ -5111,3 +5111,85 @@ div:has(> .online-indicator) {
   margin-top: 2px;
 }
 /* === TC_CHAT_CALL_CARD_END === */
+
+/* === TC_60FPS_SMOOTH_PERF_START === */
+html,
+body {
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a,
+.icon-btn,
+.drawer-item,
+.chat-item,
+.tc-cl-row,
+.tc-bnav-item {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#messages-container,
+#chat-list,
+.messages-container,
+.chat-list,
+.tc-cl-body,
+.modal-body {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  scroll-behavior: auto !important;
+  touch-action: pan-y;
+  contain: layout style;
+}
+
+.chat-item {
+  contain: layout style;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 72px;
+  transition: background-color 0.12s ease !important;
+}
+
+.msg-row {
+  contain: layout style;
+}
+
+.msg-bubble img,
+.msg-bubble video,
+.avatar img {
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+.icon-btn:active,
+.tc-cl-act-btn:active,
+#composer-action-btn:active {
+  transform: scale(0.92);
+  transition: transform 0.08s ease;
+}
+
+@media (max-width: 768px) {
+  .chat-header,
+  .composer-bar,
+  .chat-composer,
+  .msg-bubble,
+  #tcBottomNav,
+  .tc-bottom-nav,
+  .tc-cl-head {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .msg-bubble {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22) !important;
+  }
+
+  .drawer,
+  .side-drawer,
+  #drawer,
+  #side-drawer {
+    will-change: transform;
+    backface-visibility: hidden;
+  }
+}
+/* === TC_60FPS_SMOOTH_PERF_END === */
