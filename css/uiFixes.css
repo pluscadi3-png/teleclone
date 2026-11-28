@@ -5053,3 +5053,61 @@ div:has(> .online-indicator) {
   height: 18px;
 }
 /* === TC_CALLS_LOG_UI_END === */
+
+/* === TC_CHAT_CALL_CARD_START === */
+.tc-chat-call-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 175px;
+  padding: 4px 6px 4px 2px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.tc-ccc-ico {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(34, 197, 94, 0.18);
+  color: #4ade80;
+}
+
+.tc-chat-call-card.missed .tc-ccc-ico {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+.tc-ccc-ico svg {
+  width: 18px;
+  height: 18px;
+}
+
+.tc-ccc-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tc-ccc-title {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #ffffff;
+}
+
+.tc-chat-call-card.missed .tc-ccc-title {
+  color: #fca5a5;
+}
+
+.tc-ccc-sub {
+  font-size: 12px;
+  line-height: 1.25;
+  color: rgba(255, 255, 255, 0.68);
+  margin-top: 2px;
+}
+/* === TC_CHAT_CALL_CARD_END === */

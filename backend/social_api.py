@@ -165,6 +165,10 @@ def _ensure_call_logs_schema(conn):
     except Exception:
         pass
     try:
+        conn.execute("ALTER TABLE call_logs ADD COLUMN message_id INTEGER DEFAULT NULL")
+    except Exception:
+        pass
+    try:
         conn.execute("CREATE INDEX IF NOT EXISTS idx_call_logs_key ON call_logs(call_key)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_call_logs_users ON call_logs(caller_id, callee_id, id DESC)")
         conn.commit()
@@ -300,8 +304,12 @@ def list_calls(user: dict = Depends(get_current_user)):
 
 
 @router.post("/calls/log")
-def log_call(body: LogCallReq, user: dict = Depends(get_current_user)):
+async def log_call(body: LogCallReq, user: dict = Depends(get_current_user)):
+    from backend.chats import serialize_message
+    from backend.ws_manager import ws_manager
+
     conn = get_conn()
+    push_events = []
     try:
         target_id = body.targetUserId
         if not target_id and body.chatId:
@@ -322,7 +330,7 @@ def log_call(body: LogCallReq, user: dict = Depends(get_current_user)):
             caller_id = int(user["id"])
             callee_id = int(target_id)
 
-        upsert_call_log(
+        log_id = upsert_call_log(
             conn,
             caller_id=caller_id,
             callee_id=callee_id,
@@ -331,9 +339,76 @@ def log_call(body: LogCallReq, user: dict = Depends(get_current_user)):
             duration=body.duration,
             call_key=body.callId or "",
         )
-        return {"ok": True}
+
+        # Also post/update a Telegram-style call card message inside the 1-on-1 chat
+        if log_id:
+            log_row = conn.execute("SELECT * FROM call_logs WHERE id = ?", (log_id,)).fetchone()
+            chat_id = int(body.chatId) if body.chatId else None
+            if not chat_id:
+                crow = conn.execute(
+                    """
+                    SELECT c.id
+                    FROM chats c
+                    JOIN chat_members m1 ON m1.chat_id = c.id AND m1.user_id = ?
+                    JOIN chat_members m2 ON m2.chat_id = c.id AND m2.user_id = ?
+                    WHERE c.type = 'personal'
+                    LIMIT 1
+                    """,
+                    (caller_id, callee_id),
+                ).fetchone()
+                if crow:
+                    chat_id = int(crow["id"])
+
+            if log_row and chat_id:
+                is_video = (log_row["call_type"] == "video")
+                is_missed = (log_row["status"] == "missed")
+                icon = "\U0001F4F9" if is_video else "\U0001F4DE"
+                label = "Video Call" if is_video else "Voice Call"
+                dur_txt = (log_row["duration"] or "00:00").strip()
+                msg_text = f"{icon} Missed {label}" if is_missed else f"{icon} {label} \u2022 {dur_txt}"
+                existing_mid = log_row["message_id"] if "message_id" in log_row.keys() else None
+
+                if not existing_mid:
+                    now_ts = int(time.time())
+                    mcur = conn.execute(
+                        """
+                        INSERT INTO messages (chat_id, sender_id, text, status, created_at)
+                        VALUES (?, ?, ?, 'sent', ?)
+                        """,
+                        (chat_id, caller_id, msg_text, now_ts),
+                    )
+                    new_mid = mcur.lastrowid
+                    conn.execute("UPDATE call_logs SET message_id = ? WHERE id = ?", (new_mid, log_id))
+                    if is_missed:
+                        conn.execute(
+                            "UPDATE chat_members SET unread_count = unread_count + 1 WHERE chat_id = ? AND user_id = ?",
+                            (chat_id, callee_id),
+                        )
+                    conn.commit()
+
+                    mrow = conn.execute("SELECT * FROM messages WHERE id = ?", (new_mid,)).fetchone()
+                    if mrow:
+                        msg_caller = serialize_message(conn, mrow, caller_id)
+                        msg_callee = serialize_message(conn, mrow, callee_id)
+                        push_events.append((caller_id, {"type": "new_message", "chatId": chat_id, "message": msg_caller}))
+                        push_events.append((callee_id, {"type": "new_message", "chatId": chat_id, "message": msg_callee}))
+                else:
+                    old_m = conn.execute("SELECT text FROM messages WHERE id = ?", (existing_mid,)).fetchone()
+                    if old_m and old_m["text"] != msg_text:
+                        conn.execute("UPDATE messages SET text = ? WHERE id = ?", (msg_text, existing_mid))
+                        conn.commit()
+                        push_events.append((caller_id, {"type": "chat_updated", "chatId": chat_id}))
+                        push_events.append((callee_id, {"type": "chat_updated", "chatId": chat_id}))
     finally:
         conn.close()
+
+    for uid, ev in push_events:
+        try:
+            await ws_manager.send_to_user(uid, ev)
+        except Exception:
+            pass
+
+    return {"ok": True}
 
 
 # ==================== PROFILE PHOTO & POSTS ====================

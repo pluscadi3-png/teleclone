@@ -109,6 +109,8 @@
 
     fetch("/api/calls/log", {
       method: "POST",
+      keepalive: true,
+      keepalive: true,
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`
@@ -1058,6 +1060,22 @@
     if (el) el.remove();
   }
 
+  function closeAppDrawerSafe() {
+    ["drawer", "side-drawer", "nav-drawer"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove("open", "active");
+    });
+    document.querySelectorAll(".drawer.open, .side-drawer.open").forEach((el) => el.classList.remove("open"));
+    const ov = document.getElementById("drawer-overlay") || document.querySelector(".drawer-overlay");
+    if (ov) {
+      if (!ov.classList.contains("hidden")) {
+        try { ov.click(); } catch (_) {}
+      }
+      ov.classList.add("hidden");
+      ov.classList.remove("open", "active");
+    }
+  }
+
   function findChatIdForPeer(peerUserId) {
     try {
       const st = getStoreObj();
@@ -1099,7 +1117,7 @@
         const isVideo = c.callType === "video";
         const isIncomingMissed = isIncoming && isMissed;
         const typeLbl = isVideo ? "Video" : "Voice";
-        const arrow = isIncoming ? "?" : "?";
+        const arrow = isIncoming ? "\u2199" : "\u2197";
 
         let subText = "";
         let arrowClass = "ok";
@@ -1107,12 +1125,12 @@
           subText = `Missed ${typeLbl.toLowerCase()} call`;
           arrowClass = "missed";
         } else if (isIncoming) {
-          subText = `Incoming ${typeLbl.toLowerCase()} ? ${c.duration || "00:00"}`;
+          subText = `Incoming ${typeLbl.toLowerCase()} \u2022 ${c.duration || "00:00"}`;
         } else if (isMissed) {
-          subText = `Outgoing ${typeLbl.toLowerCase()} ? No answer`;
+          subText = `Outgoing ${typeLbl.toLowerCase()} \u2022 No answer`;
           arrowClass = "muted";
         } else {
-          subText = `Outgoing ${typeLbl.toLowerCase()} ? ${c.duration || "00:00"}`;
+          subText = `Outgoing ${typeLbl.toLowerCase()} \u2022 ${c.duration || "00:00"}`;
         }
 
         const av = c.avatarUrl
@@ -1127,7 +1145,7 @@
               <div class="tc-cl-sub">
                 <span class="tc-cl-arrow ${arrowClass}">${arrow}</span>
                 <span>${esc(subText)}</span>
-                ${c.time ? `<span class="tc-cl-time">? ${esc(c.time)}</span>` : ""}
+                ${c.time ? `<span class="tc-cl-time">\u2022 ${esc(c.time)}</span>` : ""}
               </div>
             </div>
             <div class="tc-cl-actions">
@@ -1185,11 +1203,7 @@
   function openLiveCallsModal() {
     closeLiveCallsModal();
     callsFilter = "all";
-
-    const drawerOv = document.getElementById("drawer-overlay") || document.querySelector(".drawer-overlay");
-    if (drawerOv && !drawerOv.classList.contains("hidden")) {
-      try { drawerOv.click(); } catch (_) {}
-    }
+    closeAppDrawerSafe();
 
     const ov = document.createElement("div");
     ov.id = "tcCallsLogOverlay";
@@ -1197,9 +1211,9 @@
     ov.innerHTML = `
       <div class="tc-cl-sheet">
         <div class="tc-cl-head">
-          <button type="button" class="tc-cl-icon-btn" id="tcCallsCloseBtn" aria-label="Back">?</button>
+          <button type="button" class="tc-cl-icon-btn" id="tcCallsCloseBtn" aria-label="Back">&#8592;</button>
           <div class="tc-cl-title">Recent Calls</div>
-          <button type="button" class="tc-cl-icon-btn" id="tcCallsRefreshBtn" title="Refresh">?</button>
+          <button type="button" class="tc-cl-icon-btn" id="tcCallsRefreshBtn" title="Refresh">&#8635;</button>
         </div>
         <div class="tc-cl-tabs">
           <button type="button" class="tc-cl-tab active" data-cl-tab="all">All</button>
@@ -1229,9 +1243,9 @@
   }
 
   function hookDrawerCallsAction() {
-    if (window.SocialUI && typeof window.SocialUI.handleDrawerAction === "function" && !window.SocialUI._tcCallsHooked) {
-      const origHandle = window.SocialUI.handleDrawerAction.bind(window.SocialUI);
-      window.SocialUI.handleDrawerAction = function (action) {
+    if (window.SocialUI && typeof window.SocialUI.handleAction === "function" && !window.SocialUI._tcCallsHooked) {
+      const origHandle = window.SocialUI.handleAction.bind(window.SocialUI);
+      window.SocialUI.handleAction = function (action) {
         if (action === "calls") {
           openLiveCallsModal();
           return true;
@@ -1242,10 +1256,109 @@
     }
   }
 
+  if (!window._tcDrawerCallsClickBound) {
+    window._tcDrawerCallsClickBound = true;
+    document.addEventListener(
+      "click",
+      (e) => {
+        const btn = e.target && e.target.closest ? e.target.closest('[data-action="calls"]') : null;
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        openLiveCallsModal();
+      },
+      true
+    );
+  }
+
   hookDrawerCallsAction();
   window.addEventListener("DOMContentLoaded", hookDrawerCallsAction);
   setTimeout(hookDrawerCallsAction, 600);
   // ===== END LIVE RECENT CALLS LOG UI =====
+
+  // ===== IN-CHAT CALL CARD ENHANCER =====
+  const CALL_MSG_RE = /^(?:\uD83D\uDCDE|\uD83D\uDCF9)\s+(Missed\s+)?(Voice|Video)\s+Call(?:\s*(?:\u2022|-)?\s+(\d{1,2}:\d{2}))?$/;
+
+  function enhanceInChatCallCards() {
+    const container =
+      document.getElementById("messages-container") ||
+      document.getElementById("chat-messages") ||
+      document.querySelector(".messages-container") ||
+      document.querySelector(".chat-messages");
+    if (!container) return;
+
+    const nodes = container.querySelectorAll(".msg-text, .message-text, .bubble-text, .msg-body");
+    nodes.forEach((el) => {
+      if (el.dataset.tcCallCard === "1") return;
+      if (el.children.length > 0) return;
+      if (el.closest(".reply-preview, .reply-quote, .msg-reply, .chat-item, .chat-list")) return;
+
+      const raw = (el.textContent || "").trim();
+      const m = CALL_MSG_RE.exec(raw);
+      if (!m) return;
+
+      const isMissed = Boolean(m[1]);
+      const isVideo = m[2] === "Video";
+      const duration = m[3] || "";
+      const isOut = Boolean(el.closest(".outgoing, .msg-out, .sent, .from-me, [data-sender='me']"));
+
+      let title = isVideo ? "Video Call" : "Voice Call";
+      let sub = duration || "Completed";
+      if (isMissed) {
+        title = isOut
+          ? (isVideo ? "Cancelled Video Call" : "Cancelled Voice Call")
+          : (isVideo ? "Missed Video Call" : "Missed Voice Call");
+        sub = isOut ? "No answer" : "Tap to call back";
+      } else {
+        sub = (isOut ? "Outgoing" : "Incoming") + (duration ? " \u2022 " + duration : "");
+      }
+
+      el.dataset.tcCallCard = "1";
+      el.innerHTML =
+        '<div class="tc-chat-call-card ' + (isMissed ? "missed" : "completed") + '" data-tc-card-call="' + (isVideo ? "video" : "voice") + '">' +
+          '<div class="tc-ccc-ico">' + (isVideo ? ICONS.videoOn : ICONS.phone) + "</div>" +
+          '<div class="tc-ccc-meta">' +
+            '<div class="tc-ccc-title">' + esc(title) + "</div>" +
+            '<div class="tc-ccc-sub">' + esc(sub) + "</div>" +
+          "</div>" +
+        "</div>";
+
+      const card = el.querySelector(".tc-chat-call-card");
+      if (card) {
+        card.onclick = (ev) => {
+          ev.stopPropagation();
+          triggerActiveChatCall(isVideo ? "video" : "voice");
+        };
+      }
+    });
+  }
+
+  let _tcCardRaf = 0;
+  function scheduleEnhanceCallCards() {
+    if (_tcCardRaf) return;
+    _tcCardRaf = requestAnimationFrame(() => {
+      _tcCardRaf = 0;
+      enhanceInChatCallCards();
+    });
+  }
+
+  function startCallCardObserver() {
+    enhanceInChatCallCards();
+    const target = document.body;
+    if (!target || target._tcCallCardObs) return;
+    const obs = new MutationObserver(scheduleEnhanceCallCards);
+    obs.observe(target, { childList: true, subtree: true });
+    target._tcCallCardObs = obs;
+  }
+
+  if (document.readyState === "loading") {
+    window.addEventListener("DOMContentLoaded", startCallCardObserver);
+  } else {
+    startCallCardObserver();
+  }
+  // ===== END IN-CHAT CALL CARD ENHANCER =====
+
 
   window.TCVoiceCall = {
     startCall,
