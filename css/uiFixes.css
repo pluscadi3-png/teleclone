@@ -5193,3 +5193,262 @@ a,
   }
 }
 /* === TC_60FPS_SMOOTH_PERF_END === */
+
+/* === TC_TRANSLATOR_UI_START === */
+.tc-tr-btn {
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  border-radius: 50% !important;
+  color: #8e94a5 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  padding: 0 !important;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.tc-tr-btn.active {
+  color: #3b82f6 !important;
+  background: rgba(59, 130, 246, 0.16) !important;
+}
+
+.tc-tr-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #101726;
+  border-top: 1px solid rgba(59, 130, 246, 0.28);
+  color: #93c5fd;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.tc-tr-pill.hidden {
+  display: none !important;
+}
+
+.tc-tr-pill-left {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tc-tr-pill-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.tc-tr-pill-btn {
+  border: none;
+  border-radius: 8px;
+  padding: 3px 9px;
+  font-size: 11.5px;
+  font-weight: 600;
+  background: rgba(59, 130, 246, 0.22);
+  color: #dbeafe;
+  cursor: pointer;
+}
+
+.tc-tr-pill-btn.off {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
+.tc-tr-meta {
+  margin-top: 4px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.62);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.tc-tr-toggle {
+  border: none;
+  background: transparent;
+  color: #60a5fa;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 0;
+  cursor: pointer;
+}
+
+.tc-tr-sent-orig {
+  margin-top: 4px;
+  padding-top: 3px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.64);
+  font-style: italic;
+}
+
+.tc-trm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10300;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+@media (min-width: 600px) {
+  .tc-trm-overlay {
+    align-items: center;
+  }
+}
+
+.tc-trm-sheet {
+  width: 100%;
+  max-width: 420px;
+  background: #121318;
+  color: #ffffff;
+  border-radius: 20px 20px 0 0;
+  padding: 18px 16px 22px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-sizing: border-box;
+}
+
+@media (min-width: 600px) {
+  .tc-trm-sheet {
+    border-radius: 18px;
+  }
+}
+
+.tc-trm-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tc-trm-title {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.tc-trm-close {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.tc-trm-sub {
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: #9ca3af;
+}
+
+.tc-trm-engine {
+  margin: 12px 0 14px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.06);
+  color: #cbd5e1;
+}
+
+.tc-trm-engine.ai {
+  background: rgba(34, 197, 94, 0.14);
+  color: #86efac;
+}
+
+.tc-trm-engine.basic {
+  background: rgba(245, 158, 11, 0.14);
+  color: #fcd34d;
+}
+
+.tc-trm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.tc-trm-field label {
+  font-size: 12.5px;
+  color: #9ca3af;
+  font-weight: 600;
+}
+
+.tc-trm-field select {
+  width: 100%;
+  padding: 11px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #1b1d24;
+  color: #ffffff;
+  font-size: 14px;
+  outline: none;
+}
+
+.tc-trm-swap-wrap {
+  display: flex;
+  justify-content: flex-end;
+  margin: 2px 0 8px;
+}
+
+.tc-trm-swap {
+  border: none;
+  background: rgba(59, 130, 246, 0.16);
+  color: #93c5fd;
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tc-trm-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 16px;
+  font-size: 13px;
+  color: #e5e7eb;
+  cursor: pointer;
+}
+
+.tc-trm-check input {
+  width: 17px;
+  height: 17px;
+  accent-color: #3b82f6;
+}
+
+.tc-trm-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.tc-trm-btn {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tc-trm-btn.primary {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.tc-trm-btn.danger {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
+}
+/* === TC_TRANSLATOR_UI_END === */

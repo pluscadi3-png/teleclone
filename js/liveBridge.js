@@ -617,10 +617,19 @@
             attachment = up.attachment;
           }
 
+          let outgoingText = msgData.text || "";
+          if (
+            outgoingText &&
+            window.TCTranslator &&
+            typeof window.TCTranslator.translateOutgoing === "function"
+          ) {
+            outgoingText = await window.TCTranslator.translateOutgoing(cid, outgoingText, tempId);
+          }
+
           const res = await api(`/api/chats/${cid}/messages`, {
             method: "POST",
             body: {
-              text: msgData.text || "",
+              text: outgoingText,
               replyToId: msgData.replyTo?.id ? Number(msgData.replyTo.id) : null,
               attachment,
               poll: msgData.poll || null,

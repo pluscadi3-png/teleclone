@@ -1,0 +1,222 @@
+import asyncio
+import hashlib
+import json
+import os
+import urllib.parse
+import urllib.request
+from collections import OrderedDict
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from backend.auth import get_current_user, make_initials, serialize_user
+
+router = APIRouter(prefix="/api", tags=["translate"])
+
+LANG_NAMES = {
+    "auto": "Auto-detect",
+    "en": "English",
+    "ur": "Urdu (in Urdu script)",
+    "ur-Latn": "Roman Urdu (Pakistani Urdu written in natural English/Latin alphabet)",
+    "hi": "Hindi",
+    "pa": "Punjabi",
+    "ar": "Arabic",
+    "tr": "Turkish",
+    "es": "Spanish",
+    "fr": "French",
+    "de": "German",
+    "zh-CN": "Chinese (Simplified)",
+    "ru": "Russian",
+    "ps": "Pashto",
+    "fa": "Persian",
+    "id": "Indonesian",
+    "pt": "Portuguese",
+}
+
+_TR_CACHE = OrderedDict()
+_TR_CACHE_MAX = 1200
+
+
+class TranslateReq(BaseModel):
+    text: str
+    sourceLang: str = "auto"
+    targetLang: str = "en"
+
+
+def _cache_get(key: str):
+    val = _TR_CACHE.get(key)
+    if val is not None:
+        _TR_CACHE.move_to_end(key)
+    return val
+
+
+def _cache_put(key: str, val: tuple):
+    _TR_CACHE[key] = val
+    _TR_CACHE.move_to_end(key)
+    while len(_TR_CACHE) > _TR_CACHE_MAX:
+        _TR_CACHE.popitem(last=False)
+
+
+def _clean_ai_output(raw: str, fallback: str) -> str:
+    txt = (raw or "").strip()
+    if len(txt) >= 2 and ((txt[0] == '"' and txt[-1] == '"') or (txt[0] == "'" and txt[-1] == "'")):
+        txt = txt[1:-1].strip()
+    return txt or fallback
+
+
+def _build_prompt(text: str, src_code: str, tgt_code: str) -> tuple:
+    src_name = LANG_NAMES.get(src_code, src_code or "Auto-detect")
+    tgt_name = LANG_NAMES.get(tgt_code, tgt_code or "English")
+    sys_msg = (
+        "You are an expert real-time chat translator. "
+        f"Translate the user's chat message into {tgt_name}. "
+        f"Source language hint: {src_name}. "
+        "Understand casual chat slang, abbreviations, and Roman Urdu / Hinglish naturally. "
+        "Keep emojis, @usernames, URLs, and tone intact. "
+        "If the message is already clearly in the target language, return it naturally as-is. "
+        "Return ONLY the translated message text with no quotes, no labels, and no explanation."
+    )
+    return sys_msg, text
+
+
+def _call_groq(text: str, src_code: str, tgt_code: str) -> str:
+    api_key = os.getenv("GROQ_API_KEY", "").strip()
+    if not api_key:
+        return ""
+    model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip() or "llama-3.3-70b-versatile"
+    sys_msg, user_msg = _build_prompt(text, src_code, tgt_code)
+    payload = json.dumps(
+        {
+            "model": model,
+            "temperature": 0.2,
+            "max_tokens": 512,
+            "messages": [
+                {"role": "system", "content": sys_msg},
+                {"role": "user", "content": user_msg},
+            ],
+        }
+    ).encode("utf-8")
+
+    req = urllib.request.Request(
+        "https://api.groq.com/openai/v1/chat/completions",
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+            "User-Agent": "TeleClone/1.0",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=12) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+        out = data["choices"][0]["message"]["content"]
+        return _clean_ai_output(out, text)
+
+
+def _call_gemini(text: str, src_code: str, tgt_code: str) -> str:
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    if not api_key:
+        return ""
+    model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip() or "gemini-2.5-flash"
+    sys_msg, user_msg = _build_prompt(text, src_code, tgt_code)
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{urllib.parse.quote(model)}:generateContent?key={urllib.parse.quote(api_key)}"
+    payload = json.dumps(
+        {
+            "systemInstruction": {"parts": [{"text": sys_msg}]},
+            "contents": [{"role": "user", "parts": [{"text": user_msg}]}],
+            "generationConfig": {"temperature": 0.2, "maxOutputTokens": 512},
+        }
+    ).encode("utf-8")
+
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        headers={"Content-Type": "application/json", "User-Agent": "TeleClone/1.0"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=12) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+        parts = data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
+        out = "".join(p.get("text", "") for p in parts)
+        return _clean_ai_output(out, text)
+
+
+def _call_google_fallback(text: str, src_code: str, tgt_code: str) -> str:
+    sl = "auto" if src_code in ("", "auto", "ur-Latn") else src_code
+    tl = "ur" if tgt_code == "ur-Latn" else (tgt_code or "en")
+    q = urllib.parse.urlencode(
+        {"client": "gtx", "sl": sl, "tl": tl, "dt": "t", "q": text}
+    )
+    req = urllib.request.Request(
+        f"https://translate.googleapis.com/translate_a/single?{q}",
+        headers={"User-Agent": "Mozilla/5.0"},
+        method="GET",
+    )
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+        if isinstance(data, list) and data and isinstance(data[0], list):
+            translated = "".join(seg[0] for seg in data[0] if isinstance(seg, list) and seg and seg[0])
+            return translated.strip() or text
+    return text
+
+
+def _translate_sync(text: str, src_code: str, tgt_code: str) -> tuple:
+    cache_key = hashlib.sha1(f"{src_code}|{tgt_code}|{text}".encode("utf-8")).hexdigest()
+    cached = _cache_get(cache_key)
+    if cached:
+        return cached
+
+    if os.getenv("GROQ_API_KEY", "").strip():
+        try:
+            out = _call_groq(text, src_code, tgt_code)
+            if out:
+                res = (out, "groq")
+                _cache_put(cache_key, res)
+                return res
+        except Exception as e:
+            print("[translate] Groq error:", e)
+
+    if os.getenv("GEMINI_API_KEY", "").strip():
+        try:
+            out = _call_gemini(text, src_code, tgt_code)
+            if out:
+                res = (out, "gemini")
+                _cache_put(cache_key, res)
+                return res
+        except Exception as e:
+            print("[translate] Gemini error:", e)
+
+    try:
+        out = _call_google_fallback(text, src_code, tgt_code)
+        res = (out or text, "fallback")
+        _cache_put(cache_key, res)
+        return res
+    except Exception as e:
+        print("[translate] Fallback error:", e)
+        return (text, "none")
+
+
+@router.get("/translate/status")
+def translate_status(user: dict = Depends(get_current_user)):
+    if os.getenv("GROQ_API_KEY", "").strip():
+        engine = "groq"
+    elif os.getenv("GEMINI_API_KEY", "").strip():
+        engine = "gemini"
+    else:
+        engine = "fallback"
+    return {"ok": True, "engine": engine}
+
+
+@router.post("/translate")
+async def translate_text(body: TranslateReq, user: dict = Depends(get_current_user)):
+    raw = (body.text or "").strip()
+    if not raw:
+        return {"ok": True, "translatedText": "", "engine": "none"}
+    if len(raw) > 2000:
+        raise HTTPException(status_code=400, detail="Message too long to translate")
+
+    src = (body.sourceLang or "auto").strip()
+    tgt = (body.targetLang or "en").strip()
+    if src == tgt and src != "auto":
+        return {"ok": True, "translatedText": raw, "engine": "same"}
+
+    translated, engine = await asyncio.to_thread(_translate_sync, raw, src, tgt)
+    return {"ok": True, "translatedText": translated, "engine": engine}
